@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="greg_red">#E50914</color>
+    <color name="greg_black">#141414</color>
+    <color name="greg_dark_gray">#2A2A2A</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

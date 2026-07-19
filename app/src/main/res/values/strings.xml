@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GregoTV</string>
+    <string name="live_now">EN VIVO</string>
+    <string name="settings">Ajustes</string>
+    <string name="retry">Reintentar</string>
+    <string name="empty_title">Nada por aquí todavía</string>
+    <string name="error_loading">No se pudo cargar el contenido</string>
+    <string name="adult_toggle">Contenido para adultos</string>
+    <string name="iptv_lists">Listas IPTV</string>
+    <string name="smb_paths">Rutas SMB</string>
+    <string name="add">Añadir</string>
+    <string name="remove">Quitar</string>
+</resources>

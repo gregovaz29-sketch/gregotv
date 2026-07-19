@@ -1,0 +1,25 @@
+# Gradle / build
+.gradle/
+build/
+app/build/
+/dist/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.DS_Store
+
+# Local SDK config (never commit)
+local.properties
+
+# APKs and signing (never commit binaries or keys)
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Gradle wrapper jar is generated in CI, not committed
+gradle/wrapper/gradle-wrapper.jar

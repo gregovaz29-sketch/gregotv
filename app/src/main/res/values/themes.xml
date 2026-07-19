@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.GregoTV" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/greg_black</item>
+        <item name="android:colorBackground">@color/greg_black</item>
+    </style>
+
+    <style name="Theme.GregoTV.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/greg_black</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_banner</item>
+        <item name="postSplashScreenTheme">@style/Theme.GregoTV</item>
+    </style>
+</resources>
