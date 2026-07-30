@@ -1,5 +1,6 @@
 package com.gregotv
 
+import com.gregotv.data.Genres
 import com.gregotv.data.LocalScanner
 import com.gregotv.data.M3uParser
 import com.gregotv.data.SmbScanner
@@ -44,7 +45,10 @@ class MediaRepository @Inject constructor(
         }
         val localDeferred = async { localScanner.scan() }
 
+        // The default lists overlap heavily (es + spa + index all carry the same
+        // Spanish channels), so collapse duplicates across lists by channel name.
         val iptv = iptvDeferred.flatMap { it.await() }
+            .distinctBy { Genres.channelKey(it.title).ifBlank { it.url } }
         val smb = smbDeferred.flatMap { it.await() }
         val local = localDeferred.await()
 
@@ -65,24 +69,29 @@ class MediaRepository @Inject constructor(
             rows += ContentRowData("Mis favoritos", favs.map { it.toMediaItem() })
         }
 
-        // Local movies / series
+        // Local movies / series. Titles differ from the live genre rows below so
+        // every row title stays unique (the home list keys rows by title).
         local.filter { it.type == MediaType.MOVIE }.takeIf { it.isNotEmpty() }?.let {
-            rows += ContentRowData("Películas", it)
+            rows += ContentRowData("Mis películas", it)
         }
         local.filter { it.type == MediaType.SERIES }.takeIf { it.isNotEmpty() }?.let {
-            rows += ContentRowData("Series", it)
+            rows += ContentRowData("Mis series", it)
         }
 
         // SMB
         if (smb.isNotEmpty()) rows += ContentRowData("Red / SMB", smb)
 
-        // Live channels grouped by group-title, biggest groups first
-        iptv.groupBy { it.group ?: "General" }
-            .entries
-            .sortedByDescending { it.value.size }
-            .forEach { (group, items) ->
-                rows += ContentRowData(group, items.take(60))
+        // Live channels: one row per unified genre, in a fixed order.
+        val byGenre = iptv.groupBy { Genres.of(it) }
+        Genres.ORDER.forEach { genre ->
+            val channels = byGenre[genre].orEmpty()
+            if (channels.isNotEmpty()) {
+                rows += ContentRowData(
+                    genre,
+                    channels.sortedBy { it.title.lowercase() }.take(MAX_CHANNELS_PER_ROW)
+                )
             }
+        }
 
         rows
     }
@@ -147,4 +156,9 @@ class MediaRepository @Inject constructor(
         id = id, title = title, url = url, type = type.name,
         posterUrl = posterUrl, group = group
     )
+
+    private companion object {
+        /** Cap per row: some genres hold thousands of channels after merging. */
+        const val MAX_CHANNELS_PER_ROW = 100
+    }
 }

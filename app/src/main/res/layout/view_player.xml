@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  surface_type=texture_view on purpose: the player sits inside a Compose
+  hierarchy wrapped in a tv-material Surface, which draws an opaque layer over
+  the hole a SurfaceView punches through the window (audio plays, video stays
+  black). A TextureView draws inside the normal view hierarchy instead.
+-->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/player_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view"
+    app:resize_mode="fit"
+    app:use_controller="true"
+    app:show_buffering="when_playing"
+    app:hide_on_touch="false"
+    app:keep_content_on_player_reset="false" />
