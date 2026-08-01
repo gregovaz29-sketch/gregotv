@@ -20,6 +20,31 @@ class M3uParser @Inject constructor(
     private val blockedGroups = setOf("xxx", "adult", "porn", "porno", "18+")
     private val cacheDir: File by lazy { File(context.cacheDir, "m3u").apply { mkdirs() } }
 
+    /** ISO country codes of Spanish-speaking countries, matched inside tvg-id. */
+    private val spanishCountries = setOf(
+        "es", "mx", "ar", "co", "cl", "ve", "pe", "ec", "gt", "cu", "bo",
+        "do", "hn", "py", "sv", "ni", "cr", "pa", "uy", "gq"
+    )
+    // tvg-id looks like "Name.cc@Quality" or "Name.cc"; grab the trailing code.
+    private val idCountry = Regex("""\.([a-z]{2})(?:@|$)""", RegexOption.IGNORE_CASE)
+
+    /**
+     * A channel counts as Spanish when it came from a Spanish list, or its
+     * tvg-language / tvg-id says so. index.m3u carries no language tag, so the
+     * tvg-id country code is the main signal there.
+     */
+    private fun isSpanish(origin: String, language: String?, tvgId: String?): Boolean {
+        if (origin == "España" || origin == "En español" || origin == "Latinoamérica") {
+            return true
+        }
+        val lang = language?.lowercase().orEmpty()
+        if ("spa" in lang || "spanish" in lang || "castellano" in lang || "espa" in lang) {
+            return true
+        }
+        val code = tvgId?.let { idCountry.find(it)?.groupValues?.get(1)?.lowercase() }
+        return code in spanishCountries
+    }
+
     private fun isAllowed(groupTitle: String?, adultEnabled: Boolean): Boolean {
         if (adultEnabled) return true
         val g = groupTitle?.lowercase() ?: return true
@@ -34,7 +59,7 @@ class M3uParser @Inject constructor(
     suspend fun parse(url: String, adultEnabled: Boolean): List<MediaItem> =
         withContext(Dispatchers.IO) {
             val raw = fetch(url) ?: readCache(url) ?: return@withContext emptyList()
-            parseText(raw, adultEnabled)
+            parseText(raw, adultEnabled, Genres.originOf(url))
         }
 
     private fun fetch(url: String): String? {
@@ -58,18 +83,26 @@ class M3uParser @Inject constructor(
         }
     }
 
-    private fun parseText(text: String, adultEnabled: Boolean): List<MediaItem> {
+    private fun parseText(
+        text: String,
+        adultEnabled: Boolean,
+        origin: String
+    ): List<MediaItem> {
         val result = LinkedHashMap<String, MediaItem>()
         val lines = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
         var pendingTitle: String? = null
         var pendingLogo: String? = null
         var pendingGroup: String? = null
+        var pendingLang: String? = null
+        var pendingId: String? = null
 
         for (line in lines) {
             if (line.startsWith("#EXTINF", ignoreCase = true)) {
                 pendingTitle = extractDisplayName(line)
                 pendingLogo = extractAttr(line, "tvg-logo")
                 pendingGroup = extractAttr(line, "group-title")
+                pendingLang = extractAttr(line, "tvg-language")
+                pendingId = extractAttr(line, "tvg-id")
             } else if (line.startsWith("#")) {
                 // ignore other directives (#EXTM3U, #EXTVLCOPT, etc.)
             } else {
@@ -77,6 +110,7 @@ class M3uParser @Inject constructor(
                 if (streamUrl.isBlank()) continue
                 if (!isAllowed(pendingGroup, adultEnabled)) {
                     pendingTitle = null; pendingLogo = null; pendingGroup = null
+                    pendingLang = null; pendingId = null
                     continue
                 }
                 val title = pendingTitle ?: streamUrl.substringAfterLast('/')
@@ -87,9 +121,14 @@ class M3uParser @Inject constructor(
                     url = streamUrl,
                     type = MediaType.LIVE_CHANNEL,
                     posterUrl = pendingLogo?.takeIf { it.isNotBlank() },
-                    group = pendingGroup?.takeIf { it.isNotBlank() } ?: "General"
+                    // Left null when absent: a filler group like "General" would
+                    // otherwise be treated as a real genre for thousands of entries.
+                    group = pendingGroup?.takeIf { it.isNotBlank() },
+                    origin = origin,
+                    spanish = isSpanish(origin, pendingLang, pendingId)
                 )
                 pendingTitle = null; pendingLogo = null; pendingGroup = null
+                pendingLang = null; pendingId = null
             }
         }
         return result.values.toList()

@@ -81,14 +81,21 @@ class MediaRepository @Inject constructor(
         // SMB
         if (smb.isNotEmpty()) rows += ContentRowData("Red / SMB", smb)
 
-        // Live channels: one row per unified genre, in a fixed order.
+        // Live channels: one row per unified genre, in a fixed order. Spanish
+        // channels sort to the front of every row so the mostly-English global
+        // list does not bury them.
         val byGenre = iptv.groupBy { Genres.of(it) }
         Genres.ORDER.forEach { genre ->
             val channels = byGenre[genre].orEmpty()
             if (channels.isNotEmpty()) {
                 rows += ContentRowData(
                     genre,
-                    channels.sortedBy { it.title.lowercase() }.take(MAX_CHANNELS_PER_ROW)
+                    channels
+                        .sortedWith(
+                            compareByDescending<MediaItem> { it.spanish }
+                                .thenBy { it.title.lowercase() }
+                        )
+                        .take(MAX_CHANNELS_PER_ROW)
                 )
             }
         }
@@ -96,10 +103,12 @@ class MediaRepository @Inject constructor(
         rows
     }
 
-    /** Pick a hero item: first favorite, else first live channel with a logo. */
+    /** Hero item: prefer a Spanish channel with a logo, then any with a logo. */
     suspend fun heroItem(rows: List<ContentRowData>): MediaItem? {
         val all = rows.flatMap { it.items }
-        return all.firstOrNull { it.posterUrl != null } ?: all.firstOrNull()
+        return all.firstOrNull { it.spanish && it.posterUrl != null }
+            ?: all.firstOrNull { it.posterUrl != null }
+            ?: all.firstOrNull()
     }
 
     // Favorites
@@ -158,7 +167,10 @@ class MediaRepository @Inject constructor(
     )
 
     private companion object {
-        /** Cap per row: some genres hold thousands of channels after merging. */
-        const val MAX_CHANNELS_PER_ROW = 100
+        /**
+         * Cap per row. "Internacional" alone holds ~4000 channels after merging
+         * and a D-pad cannot realistically cross that.
+         */
+        const val MAX_CHANNELS_PER_ROW = 200
     }
 }

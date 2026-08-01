@@ -4,16 +4,21 @@ import com.gregotv.model.MediaItem
 import java.text.Normalizer
 
 /**
- * The 15 default lists ship hundreds of different `group-title` values
- * ("Sports", "ES| DEPORTES", "Spain", "Undefined"...). This maps all of them
- * onto one small fixed set of genres so the home screen shows one row per
- * genre instead of one row per raw group.
+ * The 15 default lists ship 210 different `group-title` values ("Sports",
+ * "ES| DEPORTES", "Undefined", "Legislative"...). This maps all of them onto
+ * one small fixed set of rows so the home screen shows one row per genre
+ * instead of one row per raw group.
+ *
+ * Resolution order per channel: group-title, then channel name, then the list
+ * it came from. Roughly 43% of the merged catalogue matches no genre keyword
+ * (mostly small local stations carrying no metadata at all), so the origin
+ * fallback is what keeps them reachable instead of piling them into one row.
  */
 object Genres {
 
     const val OTHER = "Otros canales"
 
-    /** Row order on the home screen. */
+    /** Row order on the home screen. Origins come after the genres. */
     val ORDER = listOf(
         "Deportes",
         "Noticias",
@@ -27,7 +32,21 @@ object Genres {
         "Estilo de vida",
         "Autonómicas",
         "Religión",
+        "España",
+        "En español",
+        "Latinoamérica",
+        "Internacional",
         OTHER
+    )
+
+    /**
+     * Values that carry no information. `Undefined` is iptv-org's own filler and
+     * the rest show up across the other lists; treating them as genres would
+     * bucket thousands of channels under a meaningless heading.
+     */
+    private val PLACEHOLDER_GROUPS = setOf(
+        "general", "undefined", "other", "others", "otros", "varios",
+        "uncategorized", "sin categoria", "n/a"
     )
 
     /**
@@ -38,21 +57,23 @@ object Genres {
         "Infantil" to listOf(
             "infantil", "kids", "ninos", "child", "cartoon", "caricatur",
             "disney", "nickelodeon", "nick jr", "boomerang", "baby", "junior",
-            "anime", "animacion", "peppa", "clan"
+            "anime", "animacion", "animation", "peppa", "clan"
         ),
         "Deportes" to listOf(
             "deporte", "sport", "futbol", "football", "soccer", "dazn", "espn",
             "eurosport", "motogp", "formula 1", "nba", "nfl", "mlb", "nhl",
             "ufc", "wwe", "tenis", "tennis", "beisbol", "boxeo", "boxing",
-            "olimp", "golf", "la liga", "gol tv", "vamos", "movistar plus"
+            "olimp", "golf", "la liga", "gol tv", "teledeporte", "tdp"
         ),
         "Noticias" to listOf(
             "noticia", "news", "informativ", "actualidad", "24h", "24 horas",
             "cnn", "euronews", "bbc world", "france 24", "al jazeera",
-            "telesur", "rt espanol", "canal 24"
+            "telesur", "rt espanol", "canal 24", "legislat", "parlament",
+            "congreso", "senado", "politic", "business", "negocio", "economia",
+            "bloomberg", "weather", "meteo"
         ),
         "Documentales" to listOf(
-            "documental", "documentary", "docu", "discovery", "natgeo",
+            "documental", "documentary", "docu", "docs", "discovery", "natgeo",
             "national geographic", "animal planet", "history", "historia",
             "odisea", "ciencia", "science", "nature", "naturaleza"
         ),
@@ -62,7 +83,7 @@ object Genres {
         ),
         "Películas" to listOf(
             "pelicula", "movie", "cine", "cinema", "film", "hollywood",
-            "dark", "somos", "tcm", "action"
+            "classic", "clasico", "somos", "tcm"
         ),
         "Series" to listOf(
             "serie", "shows", "tv show", "novela", "telenovela", "drama",
@@ -71,32 +92,53 @@ object Genres {
         "Religión" to listOf(
             "religio", "cristian", "christian", "catolic", "catholic",
             "iglesia", "church", "gospel", "ewtn", "islam", "quran", "biblia",
-            "trece", "fe "
+            "diocesan"
         ),
         "Autonómicas" to listOf(
             "autonomic", "regional", "local", "andaluc", "catalu", "galic",
             "euskadi", "canarias", "valencia", "aragon", "asturias", "murcia",
             "castilla", "extremadura", "baleares", "navarra", "cantabria",
-            "rioja", "telemadrid", "tv3", "etb", "aragon tv", "a punt"
+            "rioja", "telemadrid", "tv3", "etb", "a punt"
         ),
         "Cultura y educación" to listOf(
             "cultura", "culture", "educa", "education", "arte", "teatro",
             "libro", "ciencias", "universidad", "aprend"
         ),
         "Estilo de vida" to listOf(
-            "lifestyle", "estilo de vida", "cocina", "food", "gourmet",
-            "viaje", "travel", "moda", "fashion", "salud", "health", "hogar",
-            "decorac", "motor", "auto", "caza", "pesca"
+            "lifestyle", "estilo de vida", "cocina", "cooking", "food",
+            "gourmet", "viaje", "travel", "moda", "fashion", "salud", "health",
+            "hogar", "decorac", "motor", "caza", "pesca", "outdoor", "shop",
+            "teletienda", "compras"
         ),
         "Entretenimiento" to listOf(
             "entreteni", "entertainment", "variety", "reality", "humor",
-            "general", "generalista", "talk", "concurso", "gameshow"
+            "talk", "concurso", "gameshow", "family", "familia", "generalista"
         )
     )
 
-    /** Genre for one channel: group-title wins, channel name is the fallback. */
+    /** Row for one channel: group-title, then channel name, then its list. */
     fun of(item: MediaItem): String =
-        match(normalize(item.group)) ?: match(normalize(item.title)) ?: OTHER
+        match(groupText(item.group))
+            ?: match(normalize(item.title))
+            ?: item.origin
+            ?: OTHER
+
+    /** Coarse origin for a list URL, used when nothing else identifies a channel. */
+    fun originOf(listUrl: String): String {
+        val u = listUrl.lowercase()
+        return when {
+            "tdtchannels" in u || "/countries/es." in u -> "España"
+            "/languages/spa" in u -> "En español"
+            "/countries/mx." in u || "/countries/ar." in u ||
+                "/countries/co." in u || "/countries/cl." in u -> "Latinoamérica"
+            else -> "Internacional"
+        }
+    }
+
+    private fun groupText(group: String?): String {
+        val g = normalize(group).trim()
+        return if (g in PLACEHOLDER_GROUPS) "" else g
+    }
 
     private fun match(text: String): String? {
         if (text.isBlank()) return null
