@@ -30,7 +30,16 @@ object DefaultLists {
         "https://iptv-org.github.io/iptv/countries/mx.m3u",
         "https://iptv-org.github.io/iptv/countries/ar.m3u",
         "https://iptv-org.github.io/iptv/countries/co.m3u",
-        "https://iptv-org.github.io/iptv/countries/cl.m3u"
+        "https://iptv-org.github.io/iptv/countries/cl.m3u",
+        "https://iptv-org.github.io/iptv/countries/pe.m3u",
+        "https://iptv-org.github.io/iptv/countries/ve.m3u",
+        "https://iptv-org.github.io/iptv/countries/ec.m3u",
+        "https://iptv-org.github.io/iptv/countries/uy.m3u",
+        "https://iptv-org.github.io/iptv/countries/pr.m3u",
+        "https://iptv-org.github.io/iptv/categories/entertainment.m3u",
+        "https://iptv-org.github.io/iptv/categories/kids.m3u",
+        "https://iptv-org.github.io/iptv/categories/comedy.m3u",
+        "https://iptv-org.github.io/iptv/categories/documentary.m3u"
     )
 }
 

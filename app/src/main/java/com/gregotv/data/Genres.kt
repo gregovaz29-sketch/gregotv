@@ -129,8 +129,8 @@ object Genres {
         return when {
             "tdtchannels" in u || "/countries/es." in u -> "España"
             "/languages/spa" in u -> "En español"
-            "/countries/mx." in u || "/countries/ar." in u ||
-                "/countries/co." in u || "/countries/cl." in u -> "Latinoamérica"
+            Regex("""/countries/(mx|ar|co|cl|pe|ve|ec|uy|pr|bo|py|gt|cu|do|hn|sv|ni|cr|pa|gq)\.""")
+                .containsMatchIn(u) -> "Latinoamérica"
             else -> "Internacional"
         }
     }

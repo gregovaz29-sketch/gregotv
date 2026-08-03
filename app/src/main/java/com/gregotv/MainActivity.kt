@@ -27,6 +27,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.tv.material3.Surface
 import com.gregotv.ui.NavHolder
 import com.gregotv.ui.Routes
+import com.gregotv.ui.browse.CategoryScreen
+import com.gregotv.ui.browse.SearchScreen
 import com.gregotv.ui.detail.DetailScreen
 import com.gregotv.ui.home.HomeScreen
 import com.gregotv.ui.home.HomeViewModel
@@ -103,7 +105,34 @@ private fun GregoNavGraph() {
                     NavHolder.selected = item
                     nav.navigate(Routes.DETAIL)
                 },
+                onOpenCategory = { row ->
+                    NavHolder.category = row
+                    nav.navigate(Routes.CATEGORY)
+                },
+                onOpenSearch = { nav.navigate(Routes.SEARCH) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) }
+            )
+        }
+        composable(Routes.CATEGORY) {
+            val category = NavHolder.category
+            if (category == null) {
+                nav.popBackStack()
+            } else {
+                CategoryScreen(
+                    category = category,
+                    onItemClick = { item ->
+                        NavHolder.selected = item
+                        nav.navigate(Routes.DETAIL)
+                    }
+                )
+            }
+        }
+        composable(Routes.SEARCH) {
+            SearchScreen(
+                onItemClick = { item ->
+                    NavHolder.selected = item
+                    nav.navigate(Routes.DETAIL)
+                }
             )
         }
         composable(Routes.DETAIL) {
