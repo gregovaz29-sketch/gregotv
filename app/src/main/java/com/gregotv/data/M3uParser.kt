@@ -59,7 +59,7 @@ class M3uParser @Inject constructor(
     suspend fun parse(url: String, adultEnabled: Boolean): List<MediaItem> =
         withContext(Dispatchers.IO) {
             val raw = fetch(url) ?: readCache(url) ?: return@withContext emptyList()
-            parseText(raw, adultEnabled, Genres.originOf(url))
+            parseText(raw, adultEnabled, url)
         }
 
     private fun fetch(url: String): String? {
@@ -86,7 +86,7 @@ class M3uParser @Inject constructor(
     private fun parseText(
         text: String,
         adultEnabled: Boolean,
-        origin: String
+        listUrl: String
     ): List<MediaItem> {
         val result = LinkedHashMap<String, MediaItem>()
         val lines = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
@@ -114,6 +114,8 @@ class M3uParser @Inject constructor(
                     continue
                 }
                 val title = pendingTitle ?: streamUrl.substringAfterLast('/')
+                // The entry's own tvg-id country code beats the list URL here.
+                val origin = Genres.originFor(listUrl, pendingId)
                 // dedupe by url
                 result[streamUrl] = MediaItem(
                     id = hash(streamUrl),

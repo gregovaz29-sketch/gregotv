@@ -36,7 +36,7 @@ private fun folderIcon(title: String): String = when (title) {
     "Entretenimiento" -> "🎭"
     "Cultura y educación" -> "📚"
     "Estilo de vida" -> "🍳"
-    "Autonómicas" -> "📍"
+    "Autonómicas y locales" -> "📍"
     "Religión" -> "⛪"
     "España" -> "🇪🇸"
     "En español" -> "🗣️"
