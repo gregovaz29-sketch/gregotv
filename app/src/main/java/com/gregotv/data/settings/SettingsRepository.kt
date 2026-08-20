@@ -20,8 +20,14 @@ private val Context.dataStore by preferencesDataStore(name = "gregotv_settings")
  * Curated for Spanish content only. We deliberately drop iptv-org's global
  * `index.m3u` (mostly English) and the `categories/*` lists (also mostly
  * English) and rely on the country/language lists plus tdtchannels for
- * Spanish-produced channels; the three `i.mjh.nz/*/es.m3u8` FAST feeds bring
- * Pluto/Samsung/Plex movie and series channels in Spanish.
+ * Spanish-produced channels.
+ *
+ * The three `i.mjh.nz/*/es.m3u8` FAST feeds used to live here and were removed:
+ * that host retired its M3U playlists and now serves only XMLTV EPG. All three
+ * URLs return 404 and the directory listing contains no `.m3u8` at all.
+ *
+ * The CI diagnostics step parses this list directly, so keep the entries as
+ * plain `https://...` string literals.
  */
 object DefaultLists {
     val IPTV = listOf(
@@ -38,11 +44,7 @@ object DefaultLists {
         "https://iptv-org.github.io/iptv/countries/ve.m3u",
         "https://iptv-org.github.io/iptv/countries/ec.m3u",
         "https://iptv-org.github.io/iptv/countries/uy.m3u",
-        "https://iptv-org.github.io/iptv/countries/pr.m3u",
-        // FAST (movies/series in Spanish)
-        "https://i.mjh.nz/PlutoTV/es.m3u8",
-        "https://i.mjh.nz/SamsungTVPlus/es.m3u8",
-        "https://i.mjh.nz/Plex/es.m3u8"
+        "https://iptv-org.github.io/iptv/countries/pr.m3u"
     )
 }
 

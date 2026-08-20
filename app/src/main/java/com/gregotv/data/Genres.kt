@@ -181,17 +181,13 @@ object Genres {
     /**
      * Coarse origin for a list URL, used when nothing else identifies a
      * channel. Any string returned here that also appears in `isSpanish`'s
-     * whitelist marks the channel as Spanish, so the FAST feeds under
-     * `i.mjh.nz/*/es.m3u8` must map to a Spanish origin — otherwise the
-     * Spanish-only filter would drop them.
+     * whitelist marks the channel as Spanish.
      */
     fun originOf(listUrl: String): String {
         val u = listUrl.lowercase()
         return when {
             "tdtchannels" in u || "/countries/es." in u -> "España"
             "/languages/spa" in u -> "En español"
-            "i.mjh.nz" in u && Regex("/(es|spa)(?:[./_-]|$)").containsMatchIn(u) ->
-                "En español"
             latamList.containsMatchIn(u) -> "Latinoamérica"
             else -> "Internacional"
         }

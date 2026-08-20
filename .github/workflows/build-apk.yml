@@ -2,7 +2,7 @@ name: Build GregoTV APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'mejoras/**' ]
   workflow_dispatch:
 
 permissions:
@@ -36,26 +36,23 @@ jobs:
 
       # Diagnostic: confirm the default IPTV lists are alive and have channels.
       # Non-blocking; results land in the build log.
+      #
+      # The URLs are read straight out of DefaultLists.IPTV rather than being
+      # duplicated here. They drifted apart once already and the stale copy kept
+      # probing three dead i.mjh.nz URLs long after they were removed from the app.
       - name: IPTV channel diagnostics
+        env:
+          SOURCE: app/src/main/java/com/gregotv/data/settings/SettingsRepository.kt
         run: |
           set +e
-          lists=(
-            "https://iptv-org.github.io/iptv/countries/es.m3u"
-            "https://iptv-org.github.io/iptv/languages/spa.m3u"
-            "https://www.tdtchannels.com/lists/tv.m3u8"
-            "https://iptv-org.github.io/iptv/countries/mx.m3u"
-            "https://iptv-org.github.io/iptv/countries/ar.m3u"
-            "https://iptv-org.github.io/iptv/countries/co.m3u"
-            "https://iptv-org.github.io/iptv/countries/cl.m3u"
-            "https://iptv-org.github.io/iptv/countries/pe.m3u"
-            "https://iptv-org.github.io/iptv/countries/ve.m3u"
-            "https://iptv-org.github.io/iptv/countries/ec.m3u"
-            "https://iptv-org.github.io/iptv/countries/uy.m3u"
-            "https://iptv-org.github.io/iptv/countries/pr.m3u"
-            "https://i.mjh.nz/PlutoTV/es.m3u8"
-            "https://i.mjh.nz/SamsungTVPlus/es.m3u8"
-            "https://i.mjh.nz/Plex/es.m3u8"
+          mapfile -t lists < <(
+            sed -n '/object DefaultLists/,/^}/p' "$SOURCE" | grep -oE 'https://[^"]+'
           )
+          if [ "${#lists[@]}" -eq 0 ]; then
+            echo "::warning::No URLs parsed from $SOURCE - has DefaultLists moved?"
+            exit 0
+          fi
+          echo "Parsed ${#lists[@]} lists from $SOURCE"
           total=0; ok=0
           printf "%-6s %-9s %s\n" "HTTP" "CHANNELS" "URL"
           for u in "${lists[@]}"; do
@@ -82,7 +79,11 @@ jobs:
           name: GregoTV-APK
           path: dist/GregoTV.apk
 
+      # main only. Publishing from a branch would push untested code out as
+      # `latest`, and the TV's download URL always resolves to `latest`.
+      # Branch builds are still downloadable from the artifact above.
       - name: Publish release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
