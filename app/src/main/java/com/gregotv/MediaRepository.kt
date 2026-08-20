@@ -127,12 +127,22 @@ class MediaRepository @Inject constructor(
         rows
     }
 
-    /** Hero item: prefer a Spanish channel with a logo, then any with a logo. */
-    suspend fun heroItem(rows: List<ContentRowData>): MediaItem? {
-        val all = rows.flatMap { it.items }
-        return all.firstOrNull { it.spanish && it.posterUrl != null }
-            ?: all.firstOrNull { it.posterUrl != null }
-            ?: all.firstOrNull()
+    /**
+     * Billboard rotation: one pick per genre row so the featured strip is
+     * varied rather than five channels from the same category. Prefers Spanish
+     * channels that actually have artwork.
+     */
+    fun heroItems(rows: List<ContentRowData>, count: Int = 5): List<MediaItem> {
+        val picks = rows
+            .filter { it.title !in NON_FEATURED_ROWS }
+            .mapNotNull { row ->
+                row.items.firstOrNull { it.spanish && it.posterUrl != null }
+                    ?: row.items.firstOrNull { it.posterUrl != null }
+            }
+            .distinctBy { it.id }
+        return picks.take(count).ifEmpty {
+            rows.flatMap { it.items }.take(1)
+        }
     }
 
     // Favorites
@@ -202,6 +212,11 @@ class MediaRepository @Inject constructor(
     }
 
     private companion object {
+        /** Rows that make poor billboard material (already-seen / user data). */
+        val NON_FEATURED_ROWS = setOf(
+            "Continuar viendo", "Mis favoritos", "Red / SMB"
+        )
+
         /**
          * Cap per row. "Internacional" alone holds ~4000 channels after merging
          * and a D-pad cannot realistically cross that.
