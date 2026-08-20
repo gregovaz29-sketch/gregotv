@@ -20,7 +20,13 @@ class SettingsViewModel @Inject constructor(
     val settings: StateFlow<AppSettings> = repo.settings.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
-        AppSettings(DefaultLists.IPTV, emptyList(), false)
+        AppSettings(
+            iptvUrls = DefaultLists.IPTV,
+            smbPaths = emptyList(),
+            adultEnabled = false,
+            spanishOnly = true,
+            userIptvUrls = emptyList()
+        )
     )
 
     fun addIptv(url: String) {
@@ -38,4 +44,7 @@ class SettingsViewModel @Inject constructor(
     fun removeSmb(path: String) = viewModelScope.launch { repo.removeSmbPath(path) }
 
     fun setAdult(enabled: Boolean) = viewModelScope.launch { repo.setAdultEnabled(enabled) }
+
+    fun setSpanishOnly(enabled: Boolean) =
+        viewModelScope.launch { repo.setSpanishOnly(enabled) }
 }

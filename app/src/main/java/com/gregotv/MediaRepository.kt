@@ -37,18 +37,30 @@ class MediaRepository @Inject constructor(
     suspend fun loadRows(): List<ContentRowData> = coroutineScope {
         val settings = settingsRepo.settings.first()
 
+        // Track which URLs the user added on top of the defaults so we can
+        // exempt them from the Spanish-only filter below.
+        val userUrls = settings.userIptvUrls.toSet()
+
         val iptvDeferred = settings.iptvUrls.map { url ->
-            async { m3uParser.parse(url, settings.adultEnabled) }
+            async {
+                val fromUser = url in userUrls
+                m3uParser.parse(url, settings.adultEnabled)
+                    // Force-mark user sources as Spanish so the filter always
+                    // keeps them: if the user added them, they want them.
+                    .let { list -> if (fromUser) list.map { it.copy(spanish = true) } else list }
+            }
         }
         val smbDeferred = settings.smbPaths.map { path ->
             async { smbScanner.scan(path) }
         }
         val localDeferred = async { localScanner.scan() }
 
-        // The default lists overlap heavily (es + spa + index all carry the same
-        // Spanish channels), so collapse duplicates across lists by channel name.
+        // The default lists overlap heavily (es + spa + tdtchannels all carry
+        // similar Spanish channels), so collapse duplicates across lists by
+        // channel name.
         val iptv = iptvDeferred.flatMap { it.await() }
             .distinctBy { Genres.channelKey(it.title).ifBlank { it.url } }
+            .let { if (settings.spanishOnly) it.filter { c -> c.spanish } else it }
         val smb = smbDeferred.flatMap { it.await() }
         val local = localDeferred.await()
 

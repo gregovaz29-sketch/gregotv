@@ -1,8 +1,9 @@
 # GregoTV - Estado de canales IPTV
 
-Diagnóstico de red ejecutado el 2026-07-19 contra las 15 listas por defecto
-(`DefaultLists.IPTV`). Cada lista: descarga con timeout, conteo de `#EXTINF`
-(canales), y código HTTP.
+Diagnóstico de red contra las 15 listas por defecto (`DefaultLists.IPTV`,
+curadas para contenido en español: `index.m3u` global y `categories/*`
+retiradas por ruido en inglés; FAST /es conservadas). Cada lista: descarga
+con timeout, conteo de `#EXTINF` (canales), y código HTTP.
 
 ## Resumen
 

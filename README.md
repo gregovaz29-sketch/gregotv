@@ -7,7 +7,10 @@ Compose for TV y Media3.
 ## Características
 
 - Solo Android TV (leanback). minSdk 23, targetSdk 34.
-- IPTV por listas M3U públicas y legales (editables en Ajustes).
+- IPTV por 15 listas M3U públicas y legales, curadas para contenido en
+  español (editables en Ajustes).
+- Filtro "solo español" activado por defecto (toggle en Ajustes); las
+  fuentes que el usuario añade están exentas.
 - Filtro NSFW por `group-title`, desactivado por defecto y con toggle.
 - Reproductor Media3 con HLS y "continuar viendo" (posición recordada).
 - Fuentes locales (MediaStore) y red SMB (jcifs-ng).
@@ -77,9 +80,11 @@ adb install -r GregoTV.apk
 
 ## Listas IPTV por defecto
 
-Solo fuentes públicas y legales (iptv-org, tdtchannels, i.mjh.nz FAST). La lista
-`index.m3u` global aplica el filtro NSFW obligatorio. Edítalas en Ajustes; no se
-incluyen repos que retransmitan canales de pago o con copyright.
+15 fuentes públicas y legales: iptv-org (España y Latinoamérica: mx, ar,
+co, cl, pe, ve, ec, uy, pr; y `languages/spa`), `tdtchannels`, y los tres
+FAST oficiales de Pluto/Samsung/Plex en español (`i.mjh.nz/*/es.m3u8`).
+No se incluyen repos que retransmitan canales de pago o con copyright.
+Edítalas en Ajustes.
 
 ## Estructura
 
