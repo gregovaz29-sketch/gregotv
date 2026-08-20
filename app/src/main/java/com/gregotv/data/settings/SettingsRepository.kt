@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.gregotv.data.XtreamSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -56,7 +57,9 @@ data class AppSettings(
      */
     val spanishOnly: Boolean,
     /** URLs the user added on top of DefaultLists, exempt from spanishOnly. */
-    val userIptvUrls: List<String> = emptyList()
+    val userIptvUrls: List<String> = emptyList(),
+    /** Xtream Codes accounts the user configured. Also exempt from spanishOnly. */
+    val xtreamSources: List<XtreamSource> = emptyList()
 )
 
 @Singleton
@@ -66,6 +69,7 @@ class SettingsRepository @Inject constructor(
     private val iptvKey = stringSetPreferencesKey("iptv_urls")
     private val userIptvKey = stringSetPreferencesKey("user_iptv_urls")
     private val smbKey = stringSetPreferencesKey("smb_paths")
+    private val xtreamKey = stringSetPreferencesKey("xtream_sources")
     private val adultKey = booleanPreferencesKey("adult_enabled")
     private val spanishOnlyKey = booleanPreferencesKey("spanish_only")
 
@@ -79,8 +83,22 @@ class SettingsRepository @Inject constructor(
             smbPaths = prefs[smbKey]?.toList() ?: emptyList(),
             adultEnabled = prefs[adultKey] ?: false,
             spanishOnly = prefs[spanishOnlyKey] ?: true,
-            userIptvUrls = user
+            userIptvUrls = user,
+            xtreamSources = prefs[xtreamKey].orEmpty()
+                .mapNotNull { XtreamSource.parse(it) }
         )
+    }
+
+    suspend fun addXtreamSource(source: XtreamSource) = context.dataStore.edit { prefs ->
+        val current = prefs[xtreamKey] ?: emptySet()
+        // Replace any existing entry for the same account rather than duplicating.
+        val kept = current.filterNot { XtreamSource.parse(it)?.id == source.id }
+        prefs[xtreamKey] = (kept + source.serialize()).toSet()
+    }
+
+    suspend fun removeXtreamSource(source: XtreamSource) = context.dataStore.edit { prefs ->
+        val current = prefs[xtreamKey] ?: emptySet()
+        prefs[xtreamKey] = current.filterNot { XtreamSource.parse(it)?.id == source.id }.toSet()
     }
 
     /** Adds a URL as a user source (exempt from the Spanish filter). */

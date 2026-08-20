@@ -2,6 +2,7 @@ package com.gregotv.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gregotv.data.XtreamSource
 import com.gregotv.data.settings.AppSettings
 import com.gregotv.data.settings.DefaultLists
 import com.gregotv.data.settings.SettingsRepository
@@ -47,4 +48,27 @@ class SettingsViewModel @Inject constructor(
 
     fun setSpanishOnly(enabled: Boolean) =
         viewModelScope.launch { repo.setSpanishOnly(enabled) }
+
+    /** Adds an Xtream Codes account. Returns false if the input is incomplete. */
+    fun addXtream(host: String, port: String, user: String, pass: String): Boolean {
+        val cleanHost = host.trim()
+            .removePrefix("https://").removePrefix("http://").trimEnd('/')
+        val portNumber = port.trim().toIntOrNull() ?: 80
+        if (cleanHost.isBlank() || user.isBlank() || pass.isBlank()) return false
+        viewModelScope.launch {
+            repo.addXtreamSource(
+                XtreamSource(
+                    host = cleanHost,
+                    port = portNumber,
+                    username = user.trim(),
+                    password = pass.trim(),
+                    https = host.trim().startsWith("https://") || portNumber == 443
+                )
+            )
+        }
+        return true
+    }
+
+    fun removeXtream(source: XtreamSource) =
+        viewModelScope.launch { repo.removeXtreamSource(source) }
 }

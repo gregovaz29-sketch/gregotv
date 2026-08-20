@@ -42,6 +42,7 @@ private fun folderIcon(title: String): String = when (title) {
     "En español" -> "🗣️"
     "Latinoamérica" -> "🌎"
     "Internacional" -> "🌐"
+    "Mis fuentes" -> "🔗"
     "Red / SMB" -> "🖧"
     "Continuar viendo" -> "▶️"
     "Mis favoritos" -> "⭐"

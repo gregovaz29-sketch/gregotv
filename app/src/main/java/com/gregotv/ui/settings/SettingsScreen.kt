@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,6 +31,10 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var newIptv by remember { mutableStateOf("") }
     var newSmb by remember { mutableStateOf("") }
+    var xtHost by remember { mutableStateOf("") }
+    var xtPort by remember { mutableStateOf("") }
+    var xtUser by remember { mutableStateOf("") }
+    var xtPass by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(48.dp),
@@ -123,6 +128,81 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(0.8f)
                 )
                 Button(onClick = { viewModel.removeIptv(url) }) { Text("Quitar") }
+            }
+        }
+
+        // Xtream Codes section. Generic: no host, account or default is
+        // bundled with the app — the user supplies their own provider.
+        item {
+            Text(
+                "Fuentes Xtream Codes",
+                color = GregoTvTheme.TextWhite,
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = xtHost,
+                        onValueChange = { xtHost = it },
+                        label = { androidx.compose.material3.Text("Host") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(0.55f)
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = xtPort,
+                        onValueChange = { xtPort = it },
+                        label = { androidx.compose.material3.Text("Puerto") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(0.4f)
+                    )
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = xtUser,
+                        onValueChange = { xtUser = it },
+                        label = { androidx.compose.material3.Text("Usuario") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(0.32f)
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = xtPass,
+                        onValueChange = { xtPass = it },
+                        label = { androidx.compose.material3.Text("Contraseña") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(0.45f)
+                    )
+                    Button(onClick = {
+                        if (viewModel.addXtream(xtHost, xtPort, xtUser, xtPass)) {
+                            xtHost = ""; xtPort = ""; xtUser = ""; xtPass = ""
+                        }
+                    }) { Text("Añadir") }
+                }
+            }
+        }
+        items(settings.xtreamSources, key = { it.id }) { source ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    // Never render the password back to the screen.
+                    text = "${source.username} @ ${source.host}:${source.port}",
+                    color = GregoTvTheme.TextMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth(0.8f)
+                )
+                Button(onClick = { viewModel.removeXtream(source) }) { Text("Quitar") }
             }
         }
 

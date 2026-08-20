@@ -25,6 +25,9 @@ object Genres {
      */
     const val LOCAL_ES = "Autonómicas y locales"
 
+    /** Origin used by channels coming from a source the user configured. */
+    const val USER_SOURCES = "Mis fuentes"
+
     /** Row order on the home screen. Origins come after the genres. */
     val ORDER = listOf(
         "Deportes",
@@ -43,6 +46,7 @@ object Genres {
         "En español",
         "Latinoamérica",
         "Internacional",
+        USER_SOURCES,
         OTHER
     )
 

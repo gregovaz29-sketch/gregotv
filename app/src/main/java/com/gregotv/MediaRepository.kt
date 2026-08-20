@@ -4,6 +4,7 @@ import com.gregotv.data.Genres
 import com.gregotv.data.LocalScanner
 import com.gregotv.data.M3uParser
 import com.gregotv.data.SmbScanner
+import com.gregotv.data.XtreamClient
 import com.gregotv.data.db.ChannelHealthDao
 import com.gregotv.data.db.ChannelHealthEntity
 import com.gregotv.data.db.FavoriteDao
@@ -25,6 +26,7 @@ import javax.inject.Singleton
 @Singleton
 class MediaRepository @Inject constructor(
     private val m3uParser: M3uParser,
+    private val xtreamClient: XtreamClient,
     private val smbScanner: SmbScanner,
     private val localScanner: LocalScanner,
     private val settingsRepo: SettingsRepository,
@@ -53,6 +55,11 @@ class MediaRepository @Inject constructor(
                     .let { list -> if (fromUser) list.map { it.copy(spanish = true) } else list }
             }
         }
+        // Xtream Codes accounts the user configured. Already flagged Spanish by
+        // the client so the spanishOnly filter leaves them alone.
+        val xtreamDeferred = settings.xtreamSources.map { source ->
+            async { xtreamClient.liveChannels(source) }
+        }
         val smbDeferred = settings.smbPaths.map { path ->
             async { smbScanner.scan(path) }
         }
@@ -69,7 +76,8 @@ class MediaRepository @Inject constructor(
             .deadSince(now - ChannelHealthDao.QUARANTINE_MS)
             .toHashSet()
 
-        val iptv = iptvDeferred.flatMap { it.await() }
+        val iptv = (iptvDeferred.flatMap { it.await() } +
+            xtreamDeferred.flatMap { it.await() })
             .distinctBy { Genres.channelKey(it.title).ifBlank { it.url } }
             .filterNot { it.url in deadUrls }
             .let { if (settings.spanishOnly) it.filter { c -> c.spanish } else it }
