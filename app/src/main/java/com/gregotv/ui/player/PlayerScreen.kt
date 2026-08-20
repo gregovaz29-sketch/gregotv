@@ -77,6 +77,11 @@ fun PlayerScreen(
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 notice = "No se puede reproducir (${error.errorCodeName})"
+                // Record the failure only for live channels; local/SMB errors
+                // are usually transient and don't warrant hiding the entry.
+                if (item.type == com.gregotv.model.MediaType.LIVE_CHANNEL) {
+                    viewModel.reportFailure(item.url)
+                }
             }
 
             override fun onTracksChanged(tracks: Tracks) {

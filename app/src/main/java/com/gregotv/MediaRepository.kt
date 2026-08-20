@@ -4,6 +4,8 @@ import com.gregotv.data.Genres
 import com.gregotv.data.LocalScanner
 import com.gregotv.data.M3uParser
 import com.gregotv.data.SmbScanner
+import com.gregotv.data.db.ChannelHealthDao
+import com.gregotv.data.db.ChannelHealthEntity
 import com.gregotv.data.db.FavoriteDao
 import com.gregotv.data.db.FavoriteEntity
 import com.gregotv.data.db.ProgressDao
@@ -27,7 +29,8 @@ class MediaRepository @Inject constructor(
     private val localScanner: LocalScanner,
     private val settingsRepo: SettingsRepository,
     private val favoriteDao: FavoriteDao,
-    private val progressDao: ProgressDao
+    private val progressDao: ProgressDao,
+    private val channelHealthDao: ChannelHealthDao
 ) {
     /**
      * Load everything and group into rows for the home screen. Each source is
@@ -58,8 +61,17 @@ class MediaRepository @Inject constructor(
         // The default lists overlap heavily (es + spa + tdtchannels all carry
         // similar Spanish channels), so collapse duplicates across lists by
         // channel name.
+        // Skip channels the player marked dead within the quarantine window;
+        // house-keep older entries so they get another chance.
+        val now = System.currentTimeMillis()
+        channelHealthDao.purgeOlderThan(now - ChannelHealthDao.QUARANTINE_MS)
+        val deadUrls = channelHealthDao
+            .deadSince(now - ChannelHealthDao.QUARANTINE_MS)
+            .toHashSet()
+
         val iptv = iptvDeferred.flatMap { it.await() }
             .distinctBy { Genres.channelKey(it.title).ifBlank { it.url } }
+            .filterNot { it.url in deadUrls }
             .let { if (settings.spanishOnly) it.filter { c -> c.spanish } else it }
         val smb = smbDeferred.flatMap { it.await() }
         val local = localDeferred.await()
@@ -177,6 +189,17 @@ class MediaRepository @Inject constructor(
         id = id, title = title, url = url, type = type.name,
         posterUrl = posterUrl, group = group
     )
+
+    /** Called by the player on playback failure of a live channel. */
+    suspend fun reportChannelFailure(url: String) {
+        channelHealthDao.upsert(
+            ChannelHealthEntity(
+                url = url,
+                status = "dead",
+                lastCheckedAt = System.currentTimeMillis()
+            )
+        )
+    }
 
     private companion object {
         /**

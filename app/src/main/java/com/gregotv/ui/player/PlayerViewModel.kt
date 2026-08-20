@@ -18,4 +18,9 @@ class PlayerViewModel @Inject constructor(
     fun save(item: MediaItem, positionMs: Long, durationMs: Long) {
         viewModelScope.launch { repo.saveProgress(item, positionMs, durationMs) }
     }
+
+    /** Mark a live channel URL as dead so the loader hides it for a while. */
+    fun reportFailure(url: String) {
+        viewModelScope.launch { repo.reportChannelFailure(url) }
+    }
 }
