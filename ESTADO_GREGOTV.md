@@ -37,6 +37,25 @@ Motivo: el flag `MediaItem.spanish` es una heurística con falsos negativos (can
 españoles sin metadata). Si se usa como filtro duro, esconde contenido bueno.
 Se queda como criterio de **orden**, no de censura.
 
+### `spanishOnly`: se retira el filtro duro 🔍 LEÍDO (20 ago)
+
+La Fase 1 (`6dfddd2`) metió en `MediaRepository.loadRows()`:
+```kotlin
+.let { if (settings.spanishOnly) it.filter { c -> c.spanish } else it }
+```
+con `spanishOnly = true` por defecto. **Contradice esta sección. Se quita.**
+
+Dos motivos:
+1. **Hoy no filtra nada.** `isSpanish()` devuelve `true` en su primera línea si
+   el origen es España / En español / Latinoamérica, y `originOf()` mapea las 12
+   listas finales a esos tres cubos. Es un no-op sobre el 100% del catálogo.
+2. **El día que filtre, romperá cosas en silencio.** Una lista M3U que añada el
+   usuario en Ajustes cae en `"Internacional"` → `spanish = false` → la app le
+   esconde su propia lista sin dar ningún error.
+
+`spanish` se queda solo en los `sortedWith` de `MediaRepository:95` y
+`SearchScreen:46`, que es su sitio.
+
 Fuera: `index.m3u` global y las 8 listas de `categories/`. Son mundiales y metían
 la mayor parte del ruido. **Ahí está todo el recorte.**
 
@@ -60,11 +79,16 @@ Se mantienen los países que ya estén en `DefaultLists.IPTV`.
 
 ### Impacto del recorte ✅ MEDIDO
 
-| | Antes (24 listas) | Recortado (22 listas ES+LatAm) |
+| | Antes (24 listas) | Final (12 listas ES+LatAm) |
 |---|---|---|
-| Canales brutos | ~20.600 | **4.950** |
-| Únicos por URL | ~12.200 | **2.767** |
-| Tras `channelKey` | — | 2.529 |
+| Canales brutos | ~20.600 | **4.242** |
+| Únicos por URL | ~12.200 | **2.577** |
+
+Las 12: `countries/` es, mx, ar, co, cl, pe, ve, ec, uy, pr + `languages/spa`
++ tdtchannels. Sin `index`, sin `categories/`, sin i.mjh.nz, sin países nuevos.
+
+> Cifras anteriores del doc (4.950 / 2.767 sobre 22 listas) medían un set que
+> incluía los 10 países luego descartados. Quedan anuladas.
 
 ### Salud real de los streams ✅ MEDIDO
 Muestra aleatoria de **400 canales**, timeout 8s:
@@ -241,7 +265,7 @@ positivo medido. **No repetir ese intento sin medir antes.**
 
 Sin decidir. Las tres opciones:
 
-- **En la TV** — verdad desde la red del usuario (geo correcto), pero 2.767 probes
+- **En la TV** — verdad desde la red del usuario (geo correcto), pero 2.577 probes
   son minutos de arranque y tráfico en un TV box.
 - **En el CI** — arranque instantáneo, pero se verifica desde un datacenter de
   GitHub (USA) → falsos negativos por geo-bloqueo español.
