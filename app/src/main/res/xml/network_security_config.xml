@@ -1,8 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is allowed on purpose, for every host.
+
+  This is an IPTV player: the streams it plays are hosted by third parties it
+  has never heard of, and a large share of them are plain http. Measured
+  against the twelve default lists, 542 of 4.242 streams (12,8%) are http,
+  spread over 118 different hosts — many of them bare IP addresses that rotate.
+  There is no domain allowlist that can cover that.
+
+  The previous config listed the hosts the *playlists* come from and blocked
+  everything else, which is a different thing entirely: Android refused the
+  connection before it was attempted and the player reported
+  ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED. Those were live channels the app was
+  rejecting on its own.
+
+  The tradeoff is real and accepted: cleartext streams can be read or tampered
+  with in transit. The alternative is silently dropping one channel in eight.
+  No credentials are ever sent over these connections; Xtream accounts are the
+  user's own and their URL scheme is whatever the user configured.
+-->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">iptv-org.github.io</domain>
-        <domain includeSubdomains="true">tdtchannels.com</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>
