@@ -118,6 +118,14 @@ class M3uParser @Inject constructor(
             } else {
                 val streamUrl = line
                 if (streamUrl.isBlank()) continue
+                // Guard against a source that answers with HTML or junk instead
+                // of M3U: without a scheme it is not a stream URL, so skip it.
+                // Otherwise every line of an error page becomes a fake channel.
+                if ("://" !in streamUrl) {
+                    pendingTitle = null; pendingLogo = null; pendingGroup = null
+                    pendingLang = null; pendingId = null
+                    continue
+                }
                 if (!isAllowed(pendingGroup, adultEnabled)) {
                     pendingTitle = null; pendingLogo = null; pendingGroup = null
                     pendingLang = null; pendingId = null
