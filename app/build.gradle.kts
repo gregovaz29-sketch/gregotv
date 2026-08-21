@@ -26,9 +26,29 @@ android {
         )
     }
 
+    // A fixed signing key, on purpose. With no signingConfig, Gradle generates
+    // a throwaway debug keystore on every CI runner, so each build carries a
+    // different signature and Android refuses to install it over the previous
+    // one. The only way through is to uninstall first, which wipes the
+    // database — and that makes Room migrations impossible to ever test.
+    // Proven: build-4 and the branch build ship different META-INF/CERT.RSA.
+    //
+    // Defaults to the checked-in debug keystore. Point GREGOTV_KEYSTORE at a
+    // file written from a CI secret to sign with a private key instead;
+    // nothing else needs to change.
+    signingConfigs {
+        create("shared") {
+            storeFile = file(System.getenv("GREGOTV_KEYSTORE") ?: "gregotv-debug.keystore")
+            storePassword = System.getenv("GREGOTV_KEYSTORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("GREGOTV_KEY_ALIAS") ?: "gregotv"
+            keyPassword = System.getenv("GREGOTV_KEY_PASSWORD") ?: "android"
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
         }
         release {
             isMinifyEnabled = false
