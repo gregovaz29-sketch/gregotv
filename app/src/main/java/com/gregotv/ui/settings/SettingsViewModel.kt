@@ -6,11 +6,11 @@ import com.gregotv.data.XtreamSource
 import com.gregotv.data.settings.AppSettings
 import com.gregotv.data.settings.DefaultLists
 import com.gregotv.data.settings.SettingsRepository
+import com.gregotv.ui.safeLaunch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,20 +33,20 @@ class SettingsViewModel @Inject constructor(
     fun addIptv(url: String): Boolean {
         val clean = url.trim()
         if (!clean.startsWith("http://") && !clean.startsWith("https://")) return false
-        viewModelScope.launch { repo.addIptvUrl(clean) }
+        safeLaunch("addIptv") { repo.addIptvUrl(clean) }
         return true
     }
 
-    fun removeIptv(url: String) = viewModelScope.launch { repo.removeIptvUrl(url) }
+    fun removeIptv(url: String) = safeLaunch("removeIptv") { repo.removeIptvUrl(url) }
 
     fun addSmb(path: String) {
         if (path.isBlank()) return
-        viewModelScope.launch { repo.addSmbPath(path) }
+        safeLaunch("addSmb") { repo.addSmbPath(path) }
     }
 
-    fun removeSmb(path: String) = viewModelScope.launch { repo.removeSmbPath(path) }
+    fun removeSmb(path: String) = safeLaunch("removeSmb") { repo.removeSmbPath(path) }
 
-    fun setAdult(enabled: Boolean) = viewModelScope.launch { repo.setAdultEnabled(enabled) }
+    fun setAdult(enabled: Boolean) = safeLaunch("setAdult") { repo.setAdultEnabled(enabled) }
 
     /** Adds an Xtream Codes account. Returns false if the input is incomplete. */
     fun addXtream(host: String, port: String, user: String, pass: String): Boolean {
@@ -54,7 +54,7 @@ class SettingsViewModel @Inject constructor(
             .removePrefix("https://").removePrefix("http://").trimEnd('/')
         val portNumber = port.trim().toIntOrNull() ?: 80
         if (cleanHost.isBlank() || user.isBlank() || pass.isBlank()) return false
-        viewModelScope.launch {
+        safeLaunch("addXtream") {
             repo.addXtreamSource(
                 XtreamSource(
                     host = cleanHost,
@@ -69,5 +69,5 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun removeXtream(source: XtreamSource) =
-        viewModelScope.launch { repo.removeXtreamSource(source) }
+        safeLaunch("removeXtream") { repo.removeXtreamSource(source) }
 }

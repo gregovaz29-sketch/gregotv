@@ -1,11 +1,10 @@
 package com.gregotv.ui.player
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.gregotv.MediaRepository
 import com.gregotv.model.MediaItem
+import com.gregotv.ui.safeLaunch
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -16,11 +15,11 @@ class PlayerViewModel @Inject constructor(
     suspend fun startPosition(id: String): Long = repo.savedPosition(id)
 
     fun save(item: MediaItem, positionMs: Long, durationMs: Long) {
-        viewModelScope.launch { repo.saveProgress(item, positionMs, durationMs) }
+        safeLaunch("saveProgress") { repo.saveProgress(item, positionMs, durationMs) }
     }
 
     /** Mark a live channel URL as dead so the loader hides it for a while. */
     fun reportFailure(url: String) {
-        viewModelScope.launch { repo.reportChannelFailure(url) }
+        safeLaunch("reportFailure") { repo.reportChannelFailure(url) }
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.gregotv.MediaRepository
 import com.gregotv.model.ContentRowData
 import com.gregotv.model.MediaItem
+import com.gregotv.ui.safeLaunch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,6 +67,6 @@ class HomeViewModel @Inject constructor(
                 }
             )
         }
-        viewModelScope.launch { repo.toggleFavorite(item) }
+        safeLaunch("toggleFavorite") { repo.toggleFavorite(item) }
     }
 }
