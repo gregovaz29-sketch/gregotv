@@ -18,13 +18,18 @@ private val Context.dataStore by preferencesDataStore(name = "gregotv_settings")
  * Legal, public IPTV lists shipped by default. Editable in Settings.
  *
  * Curated for Spanish content only. We deliberately drop iptv-org's global
- * `index.m3u` (mostly English) and the `categories/*` lists (also mostly
+ * `index.m3u` (mostly English) and its `categories` lists (also mostly
  * English) and rely on the country/language lists plus tdtchannels for
  * Spanish-produced channels.
  *
- * The three `i.mjh.nz/*/es.m3u8` FAST feeds used to live here and were removed:
- * that host retired its M3U playlists and now serves only XMLTV EPG. All three
- * URLs return 404 and the directory listing contains no `.m3u8` at all.
+ * The three `i.mjh.nz` FAST feeds (Pluto, Samsung TV+, Plex) used to live here
+ * and were removed: that host retired its M3U playlists and now serves only
+ * XMLTV EPG. All three URLs return 404 and the directory listing contains no
+ * `.m3u8` at all.
+ *
+ * Note for future edits: Kotlin block comments nest, so a literal slash-star
+ * inside this KDoc opens a second comment and swallows the rest of the file.
+ * Write path globs without it.
  *
  * The CI diagnostics step parses this list directly, so keep the entries as
  * plain `https://...` string literals.
