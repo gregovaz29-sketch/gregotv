@@ -10,7 +10,11 @@ import androidx.room.RoomDatabase
         ChannelHealthEntity::class
     ],
     version = 2,
-    exportSchema = false
+    // Room writes the canonical CREATE TABLE for every version to
+    // app/schemas. Without it there is nothing to check a hand-written
+    // migration against, and nothing for MigrationTestHelper to build an old
+    // database from.
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
