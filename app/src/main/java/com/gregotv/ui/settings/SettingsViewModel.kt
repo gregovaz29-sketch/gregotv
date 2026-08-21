@@ -2,16 +2,23 @@ package com.gregotv.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gregotv.data.LocalUploadServer
 import com.gregotv.data.XtreamSource
 import com.gregotv.data.settings.AppSettings
 import com.gregotv.data.settings.DefaultLists
 import com.gregotv.data.settings.SettingsRepository
 import com.gregotv.ui.safeLaunch
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlin.random.Random
 import javax.inject.Inject
+
+/** Displayed on the TV so the phone can reach the upload page. */
+data class LocalServerInfo(val ip: String?, val port: Int, val pin: String)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -70,4 +77,36 @@ class SettingsViewModel @Inject constructor(
 
     fun removeXtream(source: XtreamSource) =
         safeLaunch("removeXtream") { repo.removeXtreamSource(source) }
+
+    // ---- Local upload server --------------------------------------------
+    // Started and stopped by the Settings screen's lifecycle, never in the
+    // background. See LocalUploadServer.
+
+    private val _server = MutableStateFlow<LocalServerInfo?>(null)
+    val server: StateFlow<LocalServerInfo?> = _server.asStateFlow()
+
+    private var running: LocalUploadServer? = null
+
+    fun startServer() {
+        if (running != null) return
+        val pin = Random.nextInt(1000, 10000).toString()
+        val started = LocalUploadServer.start(pin, repo) ?: return
+        running = started
+        _server.value = LocalServerInfo(
+            ip = LocalUploadServer.localIpAddress(),
+            port = started.listeningPort,
+            pin = pin
+        )
+    }
+
+    fun stopServer() {
+        running?.let { server -> runCatching { server.stop() } }
+        running = null
+        _server.value = null
+    }
+
+    override fun onCleared() {
+        stopServer()
+        super.onCleared()
+    }
 }

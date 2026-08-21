@@ -135,6 +135,10 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // Tiny embedded HTTP server (~50 KB, one jar) for the local upload page in
+    // Settings, so lists can be pasted from a phone instead of typed by D-pad.
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+
     // Migration tests run on a device/emulator: they exercise real SQLite and
     // real Room validation, which is the only way to know a migration works.
     androidTestImplementation("androidx.room:room-testing:2.6.1")

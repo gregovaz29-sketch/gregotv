@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,7 +35,27 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val server by viewModel.server.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // The upload server lives exactly as long as this screen is on screen:
+    // started when it resumes, stopped when it stops. Never in the background.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.startServer()
+                Lifecycle.Event.ON_STOP -> viewModel.stopServer()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.stopServer()
+        }
+    }
+
     var newIptv by remember { mutableStateOf("") }
     var newSmb by remember { mutableStateOf("") }
     var xtHost by remember { mutableStateOf("") }
@@ -87,6 +111,46 @@ fun SettingsScreen(
                     color = GregoTvTheme.TextMuted,
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+        }
+
+        // Add-from-phone card: browse to this address on a phone on the same
+        // network and paste lists there instead of typing with the D-pad.
+        item {
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "Añadir desde el móvil",
+                    color = GregoTvTheme.TextWhite,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                val info = server
+                if (info?.ip != null) {
+                    Text(
+                        "En el navegador del móvil (misma red):",
+                        color = GregoTvTheme.TextMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "http://${info.ip}:${info.port}",
+                        color = GregoTvTheme.TextWhite,
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Text(
+                        "PIN: ${info.pin}",
+                        color = GregoTvTheme.Red,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                } else {
+                    Text(
+                        "No se pudo iniciar el servidor local (¿sin red?). " +
+                            "Puedes añadir listas escribiendo la URL abajo.",
+                        color = GregoTvTheme.TextMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
         item {
