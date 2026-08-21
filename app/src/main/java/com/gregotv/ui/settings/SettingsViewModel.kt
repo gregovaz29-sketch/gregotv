@@ -25,7 +25,6 @@ class SettingsViewModel @Inject constructor(
             iptvUrls = DefaultLists.IPTV,
             smbPaths = emptyList(),
             adultEnabled = false,
-            spanishOnly = true,
             userIptvUrls = emptyList()
         )
     )
@@ -45,9 +44,6 @@ class SettingsViewModel @Inject constructor(
     fun removeSmb(path: String) = viewModelScope.launch { repo.removeSmbPath(path) }
 
     fun setAdult(enabled: Boolean) = viewModelScope.launch { repo.setAdultEnabled(enabled) }
-
-    fun setSpanishOnly(enabled: Boolean) =
-        viewModelScope.launch { repo.setSpanishOnly(enabled) }
 
     /** Adds an Xtream Codes account. Returns false if the input is incomplete. */
     fun addXtream(host: String, port: String, user: String, pass: String): Boolean {

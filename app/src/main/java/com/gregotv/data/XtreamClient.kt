@@ -94,9 +94,7 @@ class XtreamClient @Inject constructor() {
                         posterUrl = o["stream_icon"]?.jsonPrimitive?.contentOrNull
                             ?.takeIf { it.isNotBlank() },
                         group = categories[categoryId],
-                        origin = "Mis fuentes",
-                        // User-supplied sources bypass the Spanish filter.
-                        spanish = true
+                        origin = Genres.USER_SOURCES
                     )
                 }
             }.getOrDefault(emptyList())

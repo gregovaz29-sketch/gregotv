@@ -48,26 +48,6 @@ fun SettingsScreen(
             )
         }
 
-        // Spanish-only toggle: applies to the default lists; user-added
-        // sources always show regardless.
-        item {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    "Solo canales en español",
-                    color = GregoTvTheme.TextWhite,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                androidx.compose.material3.Switch(
-                    checked = settings.spanishOnly,
-                    onCheckedChange = { viewModel.setSpanishOnly(it) }
-                )
-            }
-        }
-
         // Adult toggle
         item {
             Row(

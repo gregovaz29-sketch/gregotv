@@ -57,15 +57,9 @@ data class AppSettings(
     val iptvUrls: List<String>,
     val smbPaths: List<String>,
     val adultEnabled: Boolean,
-    /**
-     * When true, non-Spanish channels from the default lists are hidden.
-     * User-added M3U/Xtream sources are always shown regardless of this flag —
-     * if the user added them, they want them.
-     */
-    val spanishOnly: Boolean,
-    /** URLs the user added on top of DefaultLists, exempt from spanishOnly. */
+    /** URLs the user added on top of DefaultLists. */
     val userIptvUrls: List<String> = emptyList(),
-    /** Xtream Codes accounts the user configured. Also exempt from spanishOnly. */
+    /** Xtream Codes accounts the user configured. */
     val xtreamSources: List<XtreamSource> = emptyList()
 )
 
@@ -78,18 +72,16 @@ class SettingsRepository @Inject constructor(
     private val smbKey = stringSetPreferencesKey("smb_paths")
     private val xtreamKey = stringSetPreferencesKey("xtream_sources")
     private val adultKey = booleanPreferencesKey("adult_enabled")
-    private val spanishOnlyKey = booleanPreferencesKey("spanish_only")
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         val defaults = prefs[iptvKey]?.toList() ?: DefaultLists.IPTV
         val user = prefs[userIptvKey]?.toList().orEmpty()
         AppSettings(
-            // Combined list drives the loader; the user split is kept so the
-            // spanishOnly filter can exempt user URLs.
+            // Combined list drives the loader; the split is kept so the loader
+            // can tell the user's own sources apart from the bundled ones.
             iptvUrls = (defaults + user).distinct(),
             smbPaths = prefs[smbKey]?.toList() ?: emptyList(),
             adultEnabled = prefs[adultKey] ?: false,
-            spanishOnly = prefs[spanishOnlyKey] ?: true,
             userIptvUrls = user,
             xtreamSources = prefs[xtreamKey].orEmpty()
                 .mapNotNull { XtreamSource.parse(it) }
@@ -141,9 +133,5 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setAdultEnabled(enabled: Boolean) = context.dataStore.edit { prefs ->
         prefs[adultKey] = enabled
-    }
-
-    suspend fun setSpanishOnly(enabled: Boolean) = context.dataStore.edit { prefs ->
-        prefs[spanishOnlyKey] = enabled
     }
 }
