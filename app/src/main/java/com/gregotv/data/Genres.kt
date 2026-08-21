@@ -219,6 +219,49 @@ object Genres {
     // tvg-id looks like "Name.cc@Quality" or "Name.cc".
     private val idCountry = Regex("""\.([a-z]{2})(?:@|$)""", RegexOption.IGNORE_CASE)
 
+    /**
+     * Country codes we accept from a `tvg-id`. The whitelist matters: tdtchannels
+     * writes `tvg-id="La1.TV"` where `.TV` is a brand suffix, not Tuvalu, and
+     * taking it at face value labels 191 Spanish channels as foreign.
+     */
+    private val COUNTRY_NAMES = mapOf(
+        "es" to "España", "mx" to "México", "ar" to "Argentina",
+        "co" to "Colombia", "cl" to "Chile", "pe" to "Perú",
+        "ve" to "Venezuela", "ec" to "Ecuador", "uy" to "Uruguay",
+        "pr" to "Puerto Rico", "bo" to "Bolivia", "py" to "Paraguay",
+        "gt" to "Guatemala", "cu" to "Cuba", "do" to "R. Dominicana",
+        "hn" to "Honduras", "sv" to "El Salvador", "ni" to "Nicaragua",
+        "cr" to "Costa Rica", "pa" to "Panamá", "gq" to "Guinea Ecuatorial",
+        "us" to "EE. UU.", "de" to "Alemania", "fr" to "Francia",
+        "it" to "Italia", "pt" to "Portugal", "br" to "Brasil",
+        "uk" to "Reino Unido", "ca" to "Canadá", "ad" to "Andorra"
+    )
+
+    /** Country a default list is about, when its URL says so. */
+    private val listCountry = Regex("""/countries/([a-z]{2})\.""")
+
+    /**
+     * Country for one entry: the code in its `tvg-id` when we recognise it,
+     * otherwise the country the list itself is about. Null when neither
+     * answers, which is the case for the multi-country `languages/spa` feed.
+     */
+    fun countryOf(listUrl: String, tvgId: String?): String? {
+        val fromId = tvgId
+            ?.let { idCountry.find(it)?.groupValues?.get(1)?.lowercase() }
+            ?.takeIf { it in COUNTRY_NAMES }
+        if (fromId != null) return fromId
+        val u = listUrl.lowercase()
+        // tdtchannels is Spain-only but its URL says nothing, and its tvg-ids
+        // all end in the brand suffix `.TV`. Without this its channels would
+        // split away from their twins in countries/es.m3u and show up twice.
+        if ("tdtchannels" in u) return "es"
+        return listCountry.find(u)?.groupValues?.get(1)
+            ?.takeIf { it in COUNTRY_NAMES }
+    }
+
+    /** Human-readable country name, for disambiguating same-named channels. */
+    fun countryName(code: String?): String? = code?.let { COUNTRY_NAMES[it] }
+
     private fun groupText(group: String?): String {
         val g = normalize(group).trim()
         return if (g in PLACEHOLDER_GROUPS) "" else g

@@ -29,9 +29,12 @@ class SettingsViewModel @Inject constructor(
         )
     )
 
-    fun addIptv(url: String) {
-        if (url.isBlank()) return
-        viewModelScope.launch { repo.addIptvUrl(url) }
+    /** Adds an M3U list. Returns false if it is not a usable URL. */
+    fun addIptv(url: String): Boolean {
+        val clean = url.trim()
+        if (!clean.startsWith("http://") && !clean.startsWith("https://")) return false
+        viewModelScope.launch { repo.addIptvUrl(clean) }
+        return true
     }
 
     fun removeIptv(url: String) = viewModelScope.launch { repo.removeIptvUrl(url) }

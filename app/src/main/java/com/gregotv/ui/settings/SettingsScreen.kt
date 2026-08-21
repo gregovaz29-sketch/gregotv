@@ -69,11 +69,20 @@ fun SettingsScreen(
 
         // IPTV section
         item {
-            Text(
-                "Listas IPTV",
-                color = GregoTvTheme.TextWhite,
-                style = MaterialTheme.typography.titleLarge
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Listas IPTV",
+                    color = GregoTvTheme.TextWhite,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    "Pega una URL m3u/m3u8. Sus canales se reparten solos por " +
+                        "género (Deportes, Noticias, Películas...) y lo que no " +
+                        "encaje aparece en «Mis fuentes».",
+                    color = GregoTvTheme.TextMuted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
         item {
             Row(
@@ -89,8 +98,7 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(0.8f)
                 )
                 Button(onClick = {
-                    viewModel.addIptv(newIptv)
-                    newIptv = ""
+                    if (viewModel.addIptv(newIptv)) newIptv = ""
                 }) { Text("Añadir") }
             }
         }

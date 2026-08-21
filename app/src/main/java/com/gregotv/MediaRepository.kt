@@ -1,5 +1,6 @@
 package com.gregotv
 
+import com.gregotv.data.ChannelDedupe
 import com.gregotv.data.Genres
 import com.gregotv.data.LocalScanner
 import com.gregotv.data.M3uParser
@@ -42,8 +43,9 @@ class MediaRepository @Inject constructor(
     suspend fun loadRows(): List<ContentRowData> = coroutineScope {
         val settings = settingsRepo.settings.first()
 
+        val userUrls = settings.userIptvUrls.toSet()
         val iptvDeferred = settings.iptvUrls.map { url ->
-            async { m3uParser.parse(url, settings.adultEnabled) }
+            async { m3uParser.parse(url, settings.adultEnabled, url in userUrls) }
         }
         val xtreamDeferred = settings.xtreamSources.map { source ->
             async { xtreamClient.liveChannels(source) }
@@ -53,9 +55,6 @@ class MediaRepository @Inject constructor(
         }
         val localDeferred = async { localScanner.scan() }
 
-        // The default lists overlap heavily (es + spa + tdtchannels all carry
-        // similar Spanish channels), so collapse duplicates across lists by
-        // channel name.
         // Skip channels the player marked dead within the quarantine window;
         // house-keep older entries so they get another chance.
         val now = System.currentTimeMillis()
@@ -67,10 +66,9 @@ class MediaRepository @Inject constructor(
         // No language filter here on purpose. The catalogue is trimmed at the
         // source, by which lists get downloaded; `MediaItem.spanish` is a
         // heuristic with false negatives and is only used for ordering below.
-        val iptv = (iptvDeferred.flatMap { it.await() } +
-            xtreamDeferred.flatMap { it.await() })
-            .distinctBy { Genres.channelKey(it.title).ifBlank { it.url } }
-            .filterNot { it.url in deadUrls }
+        val iptv = ChannelDedupe.collapse(
+            iptvDeferred.flatMap { it.await() } + xtreamDeferred.flatMap { it.await() }
+        ).filterNot { it.url in deadUrls }
         val smb = smbDeferred.flatMap { it.await() }
         val local = localDeferred.await()
 
