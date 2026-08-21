@@ -234,18 +234,49 @@ object Genres {
         "cr" to "Costa Rica", "pa" to "Panamá", "gq" to "Guinea Ecuatorial",
         "us" to "EE. UU.", "de" to "Alemania", "fr" to "Francia",
         "it" to "Italia", "pt" to "Portugal", "br" to "Brasil",
-        "uk" to "Reino Unido", "ca" to "Canadá", "ad" to "Andorra"
+        "uk" to "Reino Unido", "ca" to "Canadá", "ad" to "Andorra",
+        // Not an ISO country: FAST providers ship one pan-regional feed for
+        // all of Latin America, and calling it by any single country lies.
+        "latam" to "Latinoamérica"
     )
 
     /** Country a default list is about, when its URL says so. */
     private val listCountry = Regex("""/countries/([a-z]{2})\.""")
 
+    // tvg-id is "Name.cc@Variant"; this grabs the variant.
+    private val idVariant = Regex("""@(.+)$""")
+
     /**
-     * Country for one entry: the code in its `tvg-id` when we recognise it,
-     * otherwise the country the list itself is about. Null when neither
-     * answers, which is the case for the multi-country `languages/spa` feed.
+     * The variant names the region a feed actually serves, and it overrides the
+     * country code when the two disagree. FAST providers file their Spanish
+     * feeds under the country that hosts them: `AvatarLaLeyendadeAang.us@LatAm`
+     * and `BobEsponja.de@ES` are Spanish channels, so labelling them "EE. UU."
+     * or "Alemania" would be telling the user something false. 365 entries in
+     * the default lists are affected.
+     *
+     * Anything absent from this map is either a quality tag (`SD`, `HD`) or a
+     * sub-feed of the same country (`North`, `South`, `East`), and leaves the
+     * country code alone.
+     */
+    private val VARIANT_REGION = mapOf(
+        "es" to "es", "spain" to "es", "spanish" to "es",
+        "latam" to "latam", "panregional" to "latam", "panregionalhd" to "latam",
+        "mexico" to "mx"
+    )
+
+    /**
+     * Country for one entry. `tvg-id` looks like `Name.cc@Variant`, so the
+     * variant is read first — it says which region the feed serves and beats
+     * the hosting country — then the country code, then the list's own
+     * country. Null when none of the three answers, which happens for 0,4% of
+     * entries in the default lists.
      */
     fun countryOf(listUrl: String, tvgId: String?): String? {
+        val fromVariant = tvgId
+            ?.let { idVariant.find(it)?.groupValues?.get(1)?.lowercase() }
+            ?.let { VARIANT_REGION[it] }
+        if (fromVariant != null) return fromVariant
+
         val fromId = tvgId
             ?.let { idCountry.find(it)?.groupValues?.get(1)?.lowercase() }
             ?.takeIf { it in COUNTRY_NAMES }
