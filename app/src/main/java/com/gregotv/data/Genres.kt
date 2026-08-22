@@ -18,6 +18,16 @@ object Genres {
 
     const val OTHER = "Otros canales"
 
+    /**
+     * Spanish regional and local stations. Most small local channels ship no
+     * usable `group-title` at all, so anything from a Spain-origin list that
+     * matches no genre lands here rather than in a nameless origin bucket.
+     */
+    const val LOCAL_ES = "Autonómicas y locales"
+
+    /** Origin used by channels coming from a source the user configured. */
+    const val USER_SOURCES = "Mis fuentes"
+
     /** Row order on the home screen. Origins come after the genres. */
     val ORDER = listOf(
         "Deportes",
@@ -30,12 +40,13 @@ object Genres {
         "Entretenimiento",
         "Cultura y educación",
         "Estilo de vida",
-        "Autonómicas",
+        LOCAL_ES,
         "Religión",
         "España",
         "En español",
         "Latinoamérica",
         "Internacional",
+        USER_SOURCES,
         OTHER
     )
 
@@ -56,14 +67,17 @@ object Genres {
     private val RULES: List<Pair<String, List<String>>> = listOf(
         "Infantil" to listOf(
             "infantil", "kids", "ninos", "child", "cartoon", "caricatur",
-            "disney", "nickelodeon", "nick jr", "boomerang", "baby", "junior",
-            "anime", "animacion", "animation", "peppa", "clan"
+            "disney", "nickelodeon", "nick jr", "boomerang", "baby",
+            "junior tv", "anime", "animacion", "animation", "peppa", "clan",
+            "peque", "boing", "canal panda", "discovery kids"
         ),
         "Deportes" to listOf(
             "deporte", "sport", "futbol", "football", "soccer", "dazn", "espn",
-            "eurosport", "motogp", "formula 1", "nba", "nfl", "mlb", "nhl",
-            "ufc", "wwe", "tenis", "tennis", "beisbol", "boxeo", "boxing",
-            "olimp", "golf", "la liga", "gol tv", "teledeporte", "tdp"
+            "eurosport", "motogp", "formula 1", "formula1", "nba", "nfl", "mlb",
+            "nhl", "ufc", "wwe", "tenis", "tennis", "beisbol", "boxeo",
+            "boxing", "olimp", "golf", "la liga", "gol tv", "teledeporte",
+            "tdp", "premier league", "champions", "copa america", "copa del rey",
+            "ligue 1", "bundesliga", "serie a", "rugby", "cricket"
         ),
         "Noticias" to listOf(
             "noticia", "news", "informativ", "actualidad", "24h", "24 horas",
@@ -82,33 +96,41 @@ object Genres {
             "flamenco", "jazz", "clasica", "radio", "karaoke", "40 tv"
         ),
         "Películas" to listOf(
-            "pelicula", "movie", "cine", "cinema", "film", "hollywood",
-            "classic", "clasico", "somos", "tcm"
+            // "classic"/"clasico" stay broad on purpose: iptv-org's "Classic"
+            // category is classic cinema, and narrowing them cost 10 channels.
+            "pelicula", "peliculas", "pelis", "movie", "movies", "cine",
+            "cinema", "film", "films", "hollywood", "classic", "clasico",
+            "somos", "tcm", "accion", "terror", "romance", "aventura",
+            "thriller", "pluto tv peliculas", "pluto tv cine"
         ),
         "Series" to listOf(
-            "serie", "shows", "tv show", "novela", "telenovela", "drama",
-            "sitcom", "comedia", "comedy"
+            "serie", "series", "shows", "tv show", "novela", "telenovela",
+            "sitcom", "comedia", "comedy", "dramatic serie", "drama serie",
+            "pluto tv series", "pluto tv novelas"
         ),
         "Religión" to listOf(
             "religio", "cristian", "christian", "catolic", "catholic",
             "iglesia", "church", "gospel", "ewtn", "islam", "quran", "biblia",
             "diocesan"
         ),
-        "Autonómicas" to listOf(
-            "autonomic", "regional", "local", "andaluc", "catalu", "galic",
+        LOCAL_ES to listOf(
+            // Removed generic "local" — matched hundreds of unrelated titles.
+            "autonomic", "regional", "andaluc", "catalu", "galic",
             "euskadi", "canarias", "valencia", "aragon", "asturias", "murcia",
             "castilla", "extremadura", "baleares", "navarra", "cantabria",
-            "rioja", "telemadrid", "tv3", "etb", "a punt"
+            "la rioja", "telemadrid", "tv3", "etb", "a punt", "canal sur",
+            "aragon tv", "tvg", "ib3", "7 region", "cmm"
         ),
         "Cultura y educación" to listOf(
             "cultura", "culture", "educa", "education", "arte", "teatro",
-            "libro", "ciencias", "universidad", "aprend"
+            "libro", "ciencias", "universidad", "aprend", "museo", "opera",
+            "ballet"
         ),
         "Estilo de vida" to listOf(
             "lifestyle", "estilo de vida", "cocina", "cooking", "food",
             "gourmet", "viaje", "travel", "moda", "fashion", "salud", "health",
             "hogar", "decorac", "motor", "caza", "pesca", "outdoor", "shop",
-            "teletienda", "compras"
+            "teletienda", "compras", "bricolaje", "jardin"
         ),
         "Entretenimiento" to listOf(
             "entreteni", "entertainment", "variety", "reality", "humor",
@@ -116,24 +138,160 @@ object Genres {
         )
     )
 
-    /** Row for one channel: group-title, then channel name, then its list. */
-    fun of(item: MediaItem): String =
-        match(groupText(item.group))
-            ?: match(normalize(item.title))
-            ?: item.origin
-            ?: OTHER
+    /**
+     * The few keywords where plain `contains` demonstrably drags in unrelated
+     * channels, measured against the default lists: "clan" hit "8tv Chiclana",
+     * "arte" hit "3Cat Joc de Cartes". These must match a whole word.
+     *
+     * Deliberately small. Whole-word matching was also tried on "cine",
+     * "film", "rock" and the regional call signs (etb/tv3/tvg/ib3/cmm) and it
+     * made things worse — it dropped Cinecanal, Filmex, MTV Rocks and seven
+     * real regional channels — so those stay as substring matches.
+     */
+    private val WHOLE_WORD = setOf("clan", "arte")
 
-    /** Coarse origin for a list URL, used when nothing else identifies a channel. */
+    /**
+     * Pre-compiled matchers, built once. Compiling a regex per channel per
+     * keyword would be ~12k x 200 regex builds on every load.
+     */
+    private class Keyword(value: String) {
+        private val literal = value
+        private val wholeWord: Regex? =
+            if (value in WHOLE_WORD) {
+                Regex("(?<![a-z0-9])" + Regex.escape(value) + "(?![a-z0-9])")
+            } else null
+
+        fun matches(text: String): Boolean =
+            wholeWord?.containsMatchIn(text) ?: (literal in text)
+    }
+
+    private val COMPILED: List<Pair<String, List<Keyword>>> =
+        RULES.map { (genre, keywords) -> genre to keywords.map { Keyword(it) } }
+
+    /** Row for one channel: group-title, then channel name, then its origin. */
+    fun of(item: MediaItem): String {
+        val genre = match(groupText(item.group)) ?: match(normalize(item.title))
+        if (genre != null) return genre
+        // No genre metadata. Spain-origin leftovers are local/regional
+        // stations, which is a far more useful row than a bare origin bucket.
+        if (item.origin == "España") return LOCAL_ES
+        return item.origin ?: OTHER
+    }
+
+    /**
+     * Coarse origin for a list URL, used when nothing else identifies a
+     * channel. Any string returned here that also appears in `isSpanish`'s
+     * whitelist marks the channel as Spanish.
+     */
     fun originOf(listUrl: String): String {
         val u = listUrl.lowercase()
         return when {
             "tdtchannels" in u || "/countries/es." in u -> "España"
             "/languages/spa" in u -> "En español"
-            Regex("""/countries/(mx|ar|co|cl|pe|ve|ec|uy|pr|bo|py|gt|cu|do|hn|sv|ni|cr|pa|gq)\.""")
-                .containsMatchIn(u) -> "Latinoamérica"
+            latamList.containsMatchIn(u) -> "Latinoamérica"
             else -> "Internacional"
         }
     }
+
+    /**
+     * Origin for one entry. The country code in `tvg-id` is more precise than
+     * the list URL: `languages/spa.m3u` is one big multi-country feed, and
+     * without this its ~900 channels all pile into a vague "En español" row
+     * instead of splitting into España and Latinoamérica.
+     */
+    fun originFor(listUrl: String, tvgId: String?): String {
+        val code = tvgId?.let { idCountry.find(it)?.groupValues?.get(1)?.lowercase() }
+        return when {
+            code == "es" -> "España"
+            code != null && code in latamCountries -> "Latinoamérica"
+            else -> originOf(listUrl)
+        }
+    }
+
+    private val latamList =
+        Regex("""/countries/(mx|ar|co|cl|pe|ve|ec|uy|pr|bo|py|gt|cu|do|hn|sv|ni|cr|pa|gq)\.""")
+
+    private val latamCountries = setOf(
+        "mx", "ar", "co", "cl", "ve", "pe", "ec", "uy", "pr", "bo", "py",
+        "gt", "cu", "do", "hn", "sv", "ni", "cr", "pa", "gq"
+    )
+
+    // tvg-id looks like "Name.cc@Quality" or "Name.cc".
+    private val idCountry = Regex("""\.([a-z]{2})(?:@|$)""", RegexOption.IGNORE_CASE)
+
+    /**
+     * Country codes we accept from a `tvg-id`. The whitelist matters: tdtchannels
+     * writes `tvg-id="La1.TV"` where `.TV` is a brand suffix, not Tuvalu, and
+     * taking it at face value labels 191 Spanish channels as foreign.
+     */
+    private val COUNTRY_NAMES = mapOf(
+        "es" to "España", "mx" to "México", "ar" to "Argentina",
+        "co" to "Colombia", "cl" to "Chile", "pe" to "Perú",
+        "ve" to "Venezuela", "ec" to "Ecuador", "uy" to "Uruguay",
+        "pr" to "Puerto Rico", "bo" to "Bolivia", "py" to "Paraguay",
+        "gt" to "Guatemala", "cu" to "Cuba", "do" to "R. Dominicana",
+        "hn" to "Honduras", "sv" to "El Salvador", "ni" to "Nicaragua",
+        "cr" to "Costa Rica", "pa" to "Panamá", "gq" to "Guinea Ecuatorial",
+        "us" to "EE. UU.", "de" to "Alemania", "fr" to "Francia",
+        "it" to "Italia", "pt" to "Portugal", "br" to "Brasil",
+        "uk" to "Reino Unido", "ca" to "Canadá", "ad" to "Andorra",
+        // Not an ISO country: FAST providers ship one pan-regional feed for
+        // all of Latin America, and calling it by any single country lies.
+        "latam" to "Latinoamérica"
+    )
+
+    /** Country a default list is about, when its URL says so. */
+    private val listCountry = Regex("""/countries/([a-z]{2})\.""")
+
+    // tvg-id is "Name.cc@Variant"; this grabs the variant.
+    private val idVariant = Regex("""@(.+)$""")
+
+    /**
+     * The variant names the region a feed actually serves, and it overrides the
+     * country code when the two disagree. FAST providers file their Spanish
+     * feeds under the country that hosts them: `AvatarLaLeyendadeAang.us@LatAm`
+     * and `BobEsponja.de@ES` are Spanish channels, so labelling them "EE. UU."
+     * or "Alemania" would be telling the user something false. 365 entries in
+     * the default lists are affected.
+     *
+     * Anything absent from this map is either a quality tag (`SD`, `HD`) or a
+     * sub-feed of the same country (`North`, `South`, `East`), and leaves the
+     * country code alone.
+     */
+    private val VARIANT_REGION = mapOf(
+        "es" to "es", "spain" to "es", "spanish" to "es",
+        "latam" to "latam", "panregional" to "latam", "panregionalhd" to "latam",
+        "mexico" to "mx"
+    )
+
+    /**
+     * Country for one entry. `tvg-id` looks like `Name.cc@Variant`, so the
+     * variant is read first — it says which region the feed serves and beats
+     * the hosting country — then the country code, then the list's own
+     * country. Null when none of the three answers, which happens for 0,4% of
+     * entries in the default lists.
+     */
+    fun countryOf(listUrl: String, tvgId: String?): String? {
+        val fromVariant = tvgId
+            ?.let { idVariant.find(it)?.groupValues?.get(1)?.lowercase() }
+            ?.let { VARIANT_REGION[it] }
+        if (fromVariant != null) return fromVariant
+
+        val fromId = tvgId
+            ?.let { idCountry.find(it)?.groupValues?.get(1)?.lowercase() }
+            ?.takeIf { it in COUNTRY_NAMES }
+        if (fromId != null) return fromId
+        val u = listUrl.lowercase()
+        // tdtchannels is Spain-only but its URL says nothing, and its tvg-ids
+        // all end in the brand suffix `.TV`. Without this its channels would
+        // split away from their twins in countries/es.m3u and show up twice.
+        if ("tdtchannels" in u) return "es"
+        return listCountry.find(u)?.groupValues?.get(1)
+            ?.takeIf { it in COUNTRY_NAMES }
+    }
+
+    /** Human-readable country name, for disambiguating same-named channels. */
+    fun countryName(code: String?): String? = code?.let { COUNTRY_NAMES[it] }
 
     private fun groupText(group: String?): String {
         val g = normalize(group).trim()
@@ -142,8 +300,8 @@ object Genres {
 
     private fun match(text: String): String? {
         if (text.isBlank()) return null
-        for ((genre, keywords) in RULES) {
-            if (keywords.any { it in text }) return genre
+        for ((genre, keywords) in COMPILED) {
+            if (keywords.any { it.matches(text) }) return genre
         }
         return null
     }

@@ -55,11 +55,20 @@ class M3uParser @Inject constructor(
      * Fetch and parse one M3U list. On network failure, fall back to the last
      * cached copy so the app can start offline. Returns an empty list if nothing
      * is available. Never throws.
+     *
+     * @param isUserSource lists the user added in Settings. Their entries are
+     * still classified by genre like any other, but anything that matches no
+     * genre lands in "Mis fuentes" instead of the "Internacional" catch-all,
+     * so the user can always find what they just added.
      */
-    suspend fun parse(url: String, adultEnabled: Boolean): List<MediaItem> =
+    suspend fun parse(
+        url: String,
+        adultEnabled: Boolean,
+        isUserSource: Boolean = false
+    ): List<MediaItem> =
         withContext(Dispatchers.IO) {
             val raw = fetch(url) ?: readCache(url) ?: return@withContext emptyList()
-            parseText(raw, adultEnabled, Genres.originOf(url))
+            parseText(raw, adultEnabled, url, isUserSource)
         }
 
     private fun fetch(url: String): String? {
@@ -86,7 +95,8 @@ class M3uParser @Inject constructor(
     private fun parseText(
         text: String,
         adultEnabled: Boolean,
-        origin: String
+        listUrl: String,
+        isUserSource: Boolean
     ): List<MediaItem> {
         val result = LinkedHashMap<String, MediaItem>()
         val lines = text.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
@@ -108,12 +118,26 @@ class M3uParser @Inject constructor(
             } else {
                 val streamUrl = line
                 if (streamUrl.isBlank()) continue
+                // Guard against a source that answers with HTML or junk instead
+                // of M3U: without a scheme it is not a stream URL, so skip it.
+                // Otherwise every line of an error page becomes a fake channel.
+                if ("://" !in streamUrl) {
+                    pendingTitle = null; pendingLogo = null; pendingGroup = null
+                    pendingLang = null; pendingId = null
+                    continue
+                }
                 if (!isAllowed(pendingGroup, adultEnabled)) {
                     pendingTitle = null; pendingLogo = null; pendingGroup = null
                     pendingLang = null; pendingId = null
                     continue
                 }
                 val title = pendingTitle ?: streamUrl.substringAfterLast('/')
+                // The entry's own tvg-id country code beats the list URL here.
+                val origin = if (isUserSource) {
+                    Genres.USER_SOURCES
+                } else {
+                    Genres.originFor(listUrl, pendingId)
+                }
                 // dedupe by url
                 result[streamUrl] = MediaItem(
                     id = hash(streamUrl),
@@ -125,7 +149,8 @@ class M3uParser @Inject constructor(
                     // otherwise be treated as a real genre for thousands of entries.
                     group = pendingGroup?.takeIf { it.isNotBlank() },
                     origin = origin,
-                    spanish = isSpanish(origin, pendingLang, pendingId)
+                    spanish = isSpanish(origin, pendingLang, pendingId),
+                    country = Genres.countryOf(listUrl, pendingId)
                 )
                 pendingTitle = null; pendingLogo = null; pendingGroup = null
                 pendingLang = null; pendingId = null

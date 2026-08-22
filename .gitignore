@@ -21,5 +21,14 @@ local.properties
 *.keystore
 *.jks
 
+# Exception: the debug signing key is deliberately public. It exists so every
+# build carries the same signature and can install over the previous one —
+# without that, testing a Room migration is impossible, because the only way
+# to install is to uninstall first and that wipes the database.
+# It is DEBUG ONLY. Never ship a release signed with it. To use a private key
+# instead, write it from a CI secret and set GREGOTV_KEYSTORE to its path.
+!app/gregotv-debug.keystore
+
 # Gradle wrapper jar is generated in CI, not committed
 gradle/wrapper/gradle-wrapper.jar
+.claude-flow/

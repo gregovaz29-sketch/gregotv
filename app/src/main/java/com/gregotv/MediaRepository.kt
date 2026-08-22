@@ -1,9 +1,13 @@
 package com.gregotv
 
+import com.gregotv.data.ChannelDedupe
 import com.gregotv.data.Genres
 import com.gregotv.data.LocalScanner
 import com.gregotv.data.M3uParser
 import com.gregotv.data.SmbScanner
+import com.gregotv.data.XtreamClient
+import com.gregotv.data.db.ChannelHealthDao
+import com.gregotv.data.db.ChannelHealthEntity
 import com.gregotv.data.db.FavoriteDao
 import com.gregotv.data.db.FavoriteEntity
 import com.gregotv.data.db.ProgressDao
@@ -23,11 +27,13 @@ import javax.inject.Singleton
 @Singleton
 class MediaRepository @Inject constructor(
     private val m3uParser: M3uParser,
+    private val xtreamClient: XtreamClient,
     private val smbScanner: SmbScanner,
     private val localScanner: LocalScanner,
     private val settingsRepo: SettingsRepository,
     private val favoriteDao: FavoriteDao,
-    private val progressDao: ProgressDao
+    private val progressDao: ProgressDao,
+    private val channelHealthDao: ChannelHealthDao
 ) {
     /**
      * Load everything and group into rows for the home screen. Each source is
@@ -37,18 +43,32 @@ class MediaRepository @Inject constructor(
     suspend fun loadRows(): List<ContentRowData> = coroutineScope {
         val settings = settingsRepo.settings.first()
 
+        val userUrls = settings.userIptvUrls.toSet()
         val iptvDeferred = settings.iptvUrls.map { url ->
-            async { m3uParser.parse(url, settings.adultEnabled) }
+            async { m3uParser.parse(url, settings.adultEnabled, url in userUrls) }
+        }
+        val xtreamDeferred = settings.xtreamSources.map { source ->
+            async { xtreamClient.liveChannels(source) }
         }
         val smbDeferred = settings.smbPaths.map { path ->
             async { smbScanner.scan(path) }
         }
         val localDeferred = async { localScanner.scan() }
 
-        // The default lists overlap heavily (es + spa + index all carry the same
-        // Spanish channels), so collapse duplicates across lists by channel name.
-        val iptv = iptvDeferred.flatMap { it.await() }
-            .distinctBy { Genres.channelKey(it.title).ifBlank { it.url } }
+        // Skip channels the player marked dead within the quarantine window;
+        // house-keep older entries so they get another chance.
+        val now = System.currentTimeMillis()
+        channelHealthDao.purgeOlderThan(now - ChannelHealthDao.QUARANTINE_MS)
+        val deadUrls = channelHealthDao
+            .deadSince(now - ChannelHealthDao.QUARANTINE_MS)
+            .toHashSet()
+
+        // No language filter here on purpose. The catalogue is trimmed at the
+        // source, by which lists get downloaded; `MediaItem.spanish` is a
+        // heuristic with false negatives and is only used for ordering below.
+        val iptv = ChannelDedupe.collapse(
+            iptvDeferred.flatMap { it.await() } + xtreamDeferred.flatMap { it.await() }
+        ).filterNot { it.url in deadUrls }
         val smb = smbDeferred.flatMap { it.await() }
         val local = localDeferred.await()
 
@@ -103,12 +123,22 @@ class MediaRepository @Inject constructor(
         rows
     }
 
-    /** Hero item: prefer a Spanish channel with a logo, then any with a logo. */
-    suspend fun heroItem(rows: List<ContentRowData>): MediaItem? {
-        val all = rows.flatMap { it.items }
-        return all.firstOrNull { it.spanish && it.posterUrl != null }
-            ?: all.firstOrNull { it.posterUrl != null }
-            ?: all.firstOrNull()
+    /**
+     * Billboard rotation: one pick per genre row so the featured strip is
+     * varied rather than five channels from the same category. Prefers Spanish
+     * channels that actually have artwork.
+     */
+    fun heroItems(rows: List<ContentRowData>, count: Int = 5): List<MediaItem> {
+        val picks = rows
+            .filter { it.title !in NON_FEATURED_ROWS }
+            .mapNotNull { row ->
+                row.items.firstOrNull { it.spanish && it.posterUrl != null }
+                    ?: row.items.firstOrNull { it.posterUrl != null }
+            }
+            .distinctBy { it.id }
+        return picks.take(count).ifEmpty {
+            rows.flatMap { it.items }.take(1)
+        }
     }
 
     // Favorites
@@ -166,7 +196,23 @@ class MediaRepository @Inject constructor(
         posterUrl = posterUrl, group = group
     )
 
+    /** Called by the player on playback failure of a live channel. */
+    suspend fun reportChannelFailure(url: String) {
+        channelHealthDao.upsert(
+            ChannelHealthEntity(
+                url = url,
+                status = "dead",
+                lastCheckedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
     private companion object {
+        /** Rows that make poor billboard material (already-seen / user data). */
+        val NON_FEATURED_ROWS = setOf(
+            "Continuar viendo", "Mis favoritos", "Red / SMB"
+        )
+
         /**
          * Cap per row. "Internacional" alone holds ~4000 channels after merging
          * and a D-pad cannot realistically cross that.

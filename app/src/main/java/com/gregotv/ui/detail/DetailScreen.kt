@@ -5,16 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -24,6 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -31,17 +31,20 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.gregotv.R
 import com.gregotv.model.MediaItem
+import com.gregotv.model.MediaType
 import com.gregotv.ui.theme.GregoTvTheme
 
 @Composable
 fun DetailScreen(
     item: MediaItem,
     onPlay: () -> Unit,
-    onToggleFavorite: (MediaItem) -> Unit
+    viewModel: DetailViewModel = hiltViewModel()
 ) {
-    var isFav by remember { mutableStateOf(false) }
+    val isFav by viewModel.isFavorite.collectAsStateWithLifecycle()
+    LaunchedEffect(item.id) { viewModel.observe(item) }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().background(GregoTvTheme.Black)) {
+        // Full-bleed art behind everything, faded so the copy stays readable.
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(item.posterUrl)
@@ -52,42 +55,79 @@ fun DetailScreen(
             placeholder = painterResource(R.drawable.placeholder_poster),
             error = painterResource(R.drawable.placeholder_poster),
             fallback = painterResource(R.drawable.placeholder_poster),
-            modifier = Modifier.fillMaxWidth().height(360.dp)
+            modifier = Modifier.fillMaxSize()
         )
         Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, GregoTvTheme.Black)
-                    )
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    0f to GregoTvTheme.Black,
+                    0.6f to GregoTvTheme.Black.copy(alpha = 0.7f),
+                    1f to GregoTvTheme.Black.copy(alpha = 0.25f)
                 )
+            )
         )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to GregoTvTheme.Black.copy(alpha = 0.5f),
+                    0.55f to Color.Transparent,
+                    1f to GregoTvTheme.Black
+                )
+            )
+        )
+
         Column(
             Modifier
-                .align(Alignment.BottomStart)
-                .padding(48.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .fillMaxWidth(0.6f)
+                .padding(start = 56.dp, top = 72.dp, bottom = 56.dp),
+            verticalArrangement = Arrangement.Center
         ) {
+            if (item.type == MediaType.LIVE_CHANNEL) {
+                Box(
+                    Modifier
+                        .background(GregoTvTheme.Red, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        "EN VIVO",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             Text(
                 text = item.title,
                 color = Color.White,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 12.dp)
             )
             item.group?.let {
-                Text(it, color = GregoTvTheme.TextMuted, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = it,
+                    color = GregoTvTheme.TextMuted,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
             item.description?.let {
-                Text(it, color = GregoTvTheme.TextMuted, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = it,
+                    color = GregoTvTheme.TextMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(onClick = onPlay) { Text("Reproducir") }
-                Button(onClick = {
-                    isFav = !isFav
-                    onToggleFavorite(item)
-                }) {
-                    Text(if (isFav) "Quitar de favoritos" else "Añadir a favoritos")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.padding(top = 28.dp)
+            ) {
+                Button(onClick = onPlay) { Text("▶  Reproducir") }
+                Button(onClick = { viewModel.toggleFavorite(item) }) {
+                    Text(if (isFav) "✓  En mi lista" else "+  Mi lista")
                 }
             }
         }

@@ -7,6 +7,12 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+ksp {
+    // Where Room exports its schema JSONs. androidTest reads them back as
+    // assets so MigrationTestHelper can build an old database from one.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.gregotv"
     compileSdk = 34
@@ -17,6 +23,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // TMDB is optional. If no key is provided, the app runs without it.
         buildConfigField(
@@ -26,9 +33,29 @@ android {
         )
     }
 
+    // A fixed signing key, on purpose. With no signingConfig, Gradle generates
+    // a throwaway debug keystore on every CI runner, so each build carries a
+    // different signature and Android refuses to install it over the previous
+    // one. The only way through is to uninstall first, which wipes the
+    // database — and that makes Room migrations impossible to ever test.
+    // Proven: build-4 and the branch build ship different META-INF/CERT.RSA.
+    //
+    // Defaults to the checked-in debug keystore. Point GREGOTV_KEYSTORE at a
+    // file written from a CI secret to sign with a private key instead;
+    // nothing else needs to change.
+    signingConfigs {
+        create("shared") {
+            storeFile = file(System.getenv("GREGOTV_KEYSTORE") ?: "gregotv-debug.keystore")
+            storePassword = System.getenv("GREGOTV_KEYSTORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("GREGOTV_KEY_ALIAS") ?: "gregotv"
+            keyPassword = System.getenv("GREGOTV_KEY_PASSWORD") ?: "android"
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
         }
         release {
             isMinifyEnabled = false
@@ -51,6 +78,13 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Room writes one JSON per schema version here. Committing them is what
+    // makes a hand-written migration checkable: the JSON holds the canonical
+    // CREATE TABLE that Room will validate against at runtime.
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
     packaging {
         resources {
@@ -100,6 +134,17 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    // Tiny embedded HTTP server (~50 KB, one jar) for the local upload page in
+    // Settings, so lists can be pasted from a phone instead of typed by D-pad.
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+
+    // Migration tests run on a device/emulator: they exercise real SQLite and
+    // real Room validation, which is the only way to know a migration works.
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")

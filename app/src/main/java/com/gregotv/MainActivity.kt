@@ -105,6 +105,11 @@ private fun GregoNavGraph() {
                     NavHolder.selected = item
                     nav.navigate(Routes.DETAIL)
                 },
+                // Billboard "Reproducir" skips the detail screen.
+                onPlay = { item ->
+                    NavHolder.selected = item
+                    nav.navigate(Routes.PLAYER)
+                },
                 onOpenCategory = { row ->
                     NavHolder.category = row
                     nav.navigate(Routes.CATEGORY)
@@ -137,14 +142,12 @@ private fun GregoNavGraph() {
         }
         composable(Routes.DETAIL) {
             val item = NavHolder.selected
-            val homeVm: HomeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             if (item == null) {
                 nav.popBackStack()
             } else {
                 DetailScreen(
                     item = item,
-                    onPlay = { nav.navigate(Routes.PLAYER) },
-                    onToggleFavorite = { homeVm.toggleFavorite(it) }
+                    onPlay = { nav.navigate(Routes.PLAYER) }
                 )
             }
         }

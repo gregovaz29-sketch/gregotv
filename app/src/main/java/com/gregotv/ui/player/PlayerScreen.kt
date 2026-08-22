@@ -12,7 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +35,6 @@ import androidx.tv.material3.Text
 import com.gregotv.R
 import com.gregotv.model.MediaItem
 import com.gregotv.ui.theme.GregoTvTheme
-import kotlinx.coroutines.launch
 
 /** Plenty of IPTV hosts reject the default agent or bounce http -> https. */
 private const val USER_AGENT = "GregoTV/1.0 (Android TV; Media3)"
@@ -49,7 +47,6 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     var notice by remember { mutableStateOf<String?>(null) }
 
@@ -77,6 +74,11 @@ fun PlayerScreen(
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 notice = "No se puede reproducir (${error.errorCodeName})"
+                // Record the failure only for live channels; local/SMB errors
+                // are usually transient and don't warrant hiding the entry.
+                if (item.type == com.gregotv.model.MediaType.LIVE_CHANNEL) {
+                    viewModel.reportFailure(item.url)
+                }
             }
 
             override fun onTracksChanged(tracks: Tracks) {
@@ -115,9 +117,9 @@ fun PlayerScreen(
                 view.player = player
                 view.setOnKeyListener { _, keyCode, event ->
                     if (event.action == KeyEvent.ACTION_UP && keyCode == KeyEvent.KEYCODE_BACK) {
-                        scope.launch {
-                            viewModel.save(item, player.currentPosition, player.duration)
-                        }
+                        // save() already launches a guarded coroutine; call it
+                        // directly rather than wrapping it in another scope.
+                        viewModel.save(item, player.currentPosition, player.duration)
                         onBack()
                         true
                     } else false
