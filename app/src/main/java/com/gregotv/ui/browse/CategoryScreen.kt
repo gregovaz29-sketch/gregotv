@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -41,7 +41,11 @@ fun CategoryScreen(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(category.items, key = { it.id }) { item ->
+            // MediaItem.id is normally the stream URL hash, but third-party lists
+            // can describe the same URL under different metadata. Compose requires
+            // every lazy-grid key to be unique, otherwise it crashes the whole app.
+            // The index is only a UI discriminator; persistence still uses item.id.
+            itemsIndexed(category.items, key = { index, item -> "${item.id}:$index" }) { _, item ->
                 ContentCard(item = item, onClick = { onItemClick(item) })
             }
         }
