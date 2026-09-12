@@ -1,0 +1,57 @@
+name: Verify GregoTV streams
+
+on:
+  # GitHub cron cannot express an exact "every four days" cadence across month
+  # boundaries. The script therefore wakes daily but performs the network check
+  # only after the previous result is at least 96 hours old.
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run now even if the latest snapshot is under four days old"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check bundled legal streams
+        env:
+          SNAPSHOT: https://raw.githubusercontent.com/gregovaz29-sketch/gregotv/data/verified.json
+        run: |
+          force=""
+          if [ "${{ inputs.force }}" = "true" ]; then force="--force"; fi
+          python3 scripts/verify_streams.py \
+            --output /tmp/verified.json \
+            --existing-url "$SNAPSHOT" \
+            --min-age-hours 96 $force
+
+      - name: Publish new snapshot to data branch
+        run: |
+          if [ ! -f /tmp/verified.json ]; then
+            echo "Snapshot is still fresh; nothing to publish."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin data:refs/remotes/origin/data || true
+          if git show-ref --verify --quiet refs/remotes/origin/data; then
+            git switch --orphan data
+            git rm -rf .
+            git checkout origin/data -- .
+          else
+            git switch --orphan data
+            git rm -rf . || true
+          fi
+          cp /tmp/verified.json verified.json
+          git add verified.json
+          git commit -m "data: refresh verified streams"
+          git push --force origin data

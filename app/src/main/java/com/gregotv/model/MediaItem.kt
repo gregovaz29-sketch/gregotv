@@ -8,6 +8,9 @@ enum class MediaType {
     SERIES
 }
 
+/** Last known result of the central, non-blocking stream verifier. */
+enum class StreamVerification { OK, DEAD, UNKNOWN }
+
 data class MediaItem(
     val id: String,
     val title: String,
@@ -25,7 +28,13 @@ data class MediaItem(
      * sharing a name across countries (TVN in Chile, Panama and the Dominican
      * Republic) stop collapsing into one another.
      */
-    val country: String? = null
+    val country: String? = null,
+    /**
+     * The central check is only used to choose between duplicate variants. A
+     * result from GitHub must never hide a channel: geo-blocking can make a
+     * working Spanish stream look dead from a foreign runner.
+     */
+    val verification: StreamVerification = StreamVerification.UNKNOWN
 )
 
 data class ContentRowData(

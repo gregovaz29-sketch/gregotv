@@ -36,5 +36,7 @@ data class ChannelHealthEntity(
     @PrimaryKey val url: String,
     /** "dead" | "ok". Only "dead" hides the channel. */
     val status: String,
-    val lastCheckedAt: Long
+    val lastCheckedAt: Long,
+    /** Local failures are only hidden after several independent failures. */
+    val failureCount: Int = 0
 )

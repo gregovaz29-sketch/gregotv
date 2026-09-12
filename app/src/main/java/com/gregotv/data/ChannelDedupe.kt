@@ -1,6 +1,7 @@
 package com.gregotv.data
 
 import com.gregotv.model.MediaItem
+import com.gregotv.model.StreamVerification
 
 /**
  * Collapses the same channel appearing across several lists.
@@ -54,7 +55,11 @@ object ChannelDedupe {
      * total, which is what removes the dependency on list order.
      */
     private val bestFirst: Comparator<MediaItem> =
-        compareByDescending<MediaItem> { resolution(it.title) }
+        // A positive verification is stronger evidence than a resolution tag
+        // written in an M3U title. UNKNOWN and DEAD deliberately tie here:
+        // a GitHub runner can be geo-blocked while the user's TV can play it.
+        compareByDescending<MediaItem> { it.verification == StreamVerification.OK }
+            .thenByDescending { resolution(it.title) }
             .thenByDescending { !isNot247(it.title) }
             .thenByDescending { !isGeoBlocked(it.title) }
             .thenBy { it.title }
