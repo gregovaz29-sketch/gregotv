@@ -5,6 +5,7 @@ import com.gregotv.data.Genres
 import com.gregotv.data.LocalScanner
 import com.gregotv.data.M3uParser
 import com.gregotv.data.SmbScanner
+import com.gregotv.data.StreamStatusRepository
 import com.gregotv.data.XtreamClient
 import com.gregotv.data.db.ChannelHealthDao
 import com.gregotv.data.db.ChannelHealthEntity
@@ -33,7 +34,8 @@ class MediaRepository @Inject constructor(
     private val settingsRepo: SettingsRepository,
     private val favoriteDao: FavoriteDao,
     private val progressDao: ProgressDao,
-    private val channelHealthDao: ChannelHealthDao
+    private val channelHealthDao: ChannelHealthDao,
+    private val streamStatusRepository: StreamStatusRepository
 ) {
     /**
      * Load everything and group into rows for the home screen. Each source is
@@ -66,8 +68,10 @@ class MediaRepository @Inject constructor(
         // No language filter here on purpose. The catalogue is trimmed at the
         // source, by which lists get downloaded; `MediaItem.spanish` is a
         // heuristic with false negatives and is only used for ordering below.
+        val verifiedUrls = streamStatusRepository.verifiedUrls()
         val iptv = ChannelDedupe.collapse(
-            iptvDeferred.flatMap { it.await() } + xtreamDeferred.flatMap { it.await() }
+            (iptvDeferred.flatMap { it.await() } + xtreamDeferred.flatMap { it.await() })
+                .map { it.copy(verification = streamStatusRepository.statusOf(it.url, verifiedUrls)) }
         ).filterNot { it.url in deadUrls }
         val smb = smbDeferred.flatMap { it.await() }
         val local = localDeferred.await()
@@ -198,11 +202,25 @@ class MediaRepository @Inject constructor(
 
     /** Called by the player on playback failure of a live channel. */
     suspend fun reportChannelFailure(url: String) {
+        val previous = channelHealthDao.get(url)
         channelHealthDao.upsert(
             ChannelHealthEntity(
                 url = url,
                 status = "dead",
-                lastCheckedAt = System.currentTimeMillis()
+                lastCheckedAt = System.currentTimeMillis(),
+                failureCount = (previous?.failureCount ?: 0) + 1
+            )
+        )
+    }
+
+    /** A stable ten-second playback gives a failed stream another chance. */
+    suspend fun reportChannelSuccess(url: String) {
+        channelHealthDao.upsert(
+            ChannelHealthEntity(
+                url = url,
+                status = "ok",
+                lastCheckedAt = System.currentTimeMillis(),
+                failureCount = 0
             )
         )
     }

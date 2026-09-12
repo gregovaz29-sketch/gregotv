@@ -11,10 +11,13 @@ interface ChannelHealthDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entry: ChannelHealthEntity)
 
+    @Query("SELECT * FROM channel_health WHERE url = :url LIMIT 1")
+    suspend fun get(url: String): ChannelHealthEntity?
+
     /** URLs marked dead within the quarantine window; used by the loader. */
     @Query(
         "SELECT url FROM channel_health " +
-            "WHERE status = 'dead' AND lastCheckedAt >= :since"
+            "WHERE status = 'dead' AND failureCount >= 3 AND lastCheckedAt >= :since"
     )
     suspend fun deadSince(since: Long): List<String>
 

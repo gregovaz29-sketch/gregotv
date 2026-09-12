@@ -22,4 +22,8 @@ class PlayerViewModel @Inject constructor(
     fun reportFailure(url: String) {
         safeLaunch("reportFailure") { repo.reportChannelFailure(url) }
     }
+
+    fun reportSuccess(url: String) {
+        safeLaunch("reportSuccess") { repo.reportChannelSuccess(url) }
+    }
 }

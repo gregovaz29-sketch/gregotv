@@ -2,6 +2,8 @@ package com.gregotv.ui.player
 
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,14 +73,31 @@ fun PlayerScreen(
     }
 
     DisposableEffect(player) {
+        val handler = Handler(Looper.getMainLooper())
+        var successReported = false
+        val reportStablePlayback = Runnable {
+            if (item.type == com.gregotv.model.MediaType.LIVE_CHANNEL &&
+                player.playbackState == Player.STATE_READY && player.isPlaying
+            ) {
+                successReported = true
+                viewModel.reportSuccess(item.url)
+            }
+        }
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 notice = "No se puede reproducir (${error.errorCodeName})"
                 // Record the failure only for live channels; local/SMB errors
                 // are usually transient and don't warrant hiding the entry.
                 if (item.type == com.gregotv.model.MediaType.LIVE_CHANNEL) {
+                    handler.removeCallbacks(reportStablePlayback)
                     viewModel.reportFailure(item.url)
                 }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (successReported || item.type != com.gregotv.model.MediaType.LIVE_CHANNEL) return
+                if (isPlaying) handler.postDelayed(reportStablePlayback, 10_000)
+                else handler.removeCallbacks(reportStablePlayback)
             }
 
             override fun onTracksChanged(tracks: Tracks) {
@@ -96,6 +115,7 @@ fun PlayerScreen(
         }
         player.addListener(listener)
         onDispose {
+            handler.removeCallbacks(reportStablePlayback)
             player.removeListener(listener)
             viewModel.save(item, player.currentPosition, player.duration)
             player.release()

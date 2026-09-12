@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase
         ProgressEntity::class,
         ChannelHealthEntity::class
     ],
-    version = 2,
+    version = 3,
     // Room writes the canonical CREATE TABLE for every version to
     // app/schemas. Without it there is nothing to check a hand-written
     // migration against, and nothing for MigrationTestHelper to build an old
